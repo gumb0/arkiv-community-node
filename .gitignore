@@ -1,0 +1,15 @@
+# Operator-local configuration and secrets
+.env
+*.jwt
+secrets/
+
+# Node data and rendered configs
+data/
+generated/
+
+# IDE / editor
+.idea/
+.vscode/
+
+# Claude Code local settings
+.claude/settings.local.json*

@@ -19,6 +19,10 @@ services:
       - --http
       - --http.addr=0.0.0.0
       - --http.api=eth,net,web3
+      # Docker captures stdout (rotated in compose.yaml); the client's own
+      # rotating file logger would only duplicate it inside the container's
+      # writable layer. 0 = "background file logging is disabled" per --help.
+      - --log.file.max-files=0
       - --disable-discovery
       - --trusted-peers=${EL_ENODE}
 

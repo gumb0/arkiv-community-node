@@ -1,0 +1,38 @@
+# Template for compose.override.yaml — rendered by setup.sh, do not edit the
+# rendered file (it is regenerated on every setup/--refresh run).
+#
+# Everything here is a network value: image pins and the client command
+# lines, with the published peer endpoints substituted in. The command lines
+# follow the upstream run-node.sh exactly; setup.sh warns when upstream
+# changes so this translation can be reviewed against it.
+
+services:
+  execution:
+    image: ${EL_IMAGE}
+    command:
+      - node
+      - --chain=/gen/genesis.json
+      - --datadir=/data
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.jwtsecret=/secrets/jwtsecret
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.api=eth,net,web3
+      - --disable-discovery
+      - --trusted-peers=${EL_ENODE}
+
+  consensus:
+    image: ${CL_IMAGE}
+    command:
+      - lighthouse
+      - beacon_node
+      - --testnet-dir=/gen
+      - --datadir=/data
+      - --execution-endpoint=http://execution:8551
+      - --execution-jwt=/secrets/jwtsecret
+      - --http
+      - --http-address=0.0.0.0
+      - --boot-nodes=${CL_ENR}
+      - --allow-insecure-genesis-sync
+      - --ignore-ws-check

@@ -1,0 +1,63 @@
+# Static part of the stack. The image pins and client command lines live in
+# compose.override.yaml, which setup.sh renders from the network artifacts —
+# compose merges the two files automatically, so plain `docker compose ps`,
+# `logs`, `down` work with no extra flags.
+name: arkiv-community-node
+
+services:
+  execution:
+    volumes:
+      - ./artifacts:/gen:ro
+      - ./secrets:/secrets:ro
+      - ./healthchecks:/hc:ro
+      - el-data:/data
+    ports:
+      # Loopback only: the RPC is for this host (and later the tunnel
+      # client), never for the internet.
+      - "127.0.0.1:${EL_RPC_PORT:-8545}:8545"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "bash", "/hc/el.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # The check passes only once sync is done. A first sync from genesis
+      # takes hours: the badge stays at "starting" for that window. A
+      # restart of an already-synced node goes green in minutes.
+      start_period: 6h
+
+  consensus:
+    # Plain start-order dependency, deliberately NOT
+    # `condition: service_healthy`: the execution client only becomes
+    # healthy (synced) when the beacon node drives it over the engine API —
+    # waiting for health before starting the beacon node would deadlock.
+    depends_on:
+      - execution
+    volumes:
+      - ./artifacts:/gen:ro
+      - ./secrets:/secrets:ro
+      - ./healthchecks:/hc:ro
+      - cl-data:/data
+    ports:
+      - "127.0.0.1:${CL_HTTP_PORT:-5052}:5052"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "bash", "/hc/cl.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 6h
+
+volumes:
+  el-data:
+  cl-data:

@@ -1,11 +1,11 @@
 # Operator-local configuration and secrets
 .env
-*.jwt
 secrets/
 
-# Node data and rendered configs
-data/
-generated/
+# Fetched network artifacts and files rendered from them
+artifacts/
+compose.override.yaml
+.setup-state/
 
 # IDE / editor
 .idea/

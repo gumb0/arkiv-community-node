@@ -26,10 +26,9 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      # The check passes only once sync is done. A first sync from genesis
-      # takes hours: the badge stays at "starting" for that window. A
-      # restart of an already-synced node goes green in minutes.
-      start_period: 6h
+      # "Serving RPC" — up within minutes of start. Being current is the
+      # consensus check's claim, not this one's.
+      start_period: 5m
 
   consensus:
     # Plain start-order dependency, deliberately NOT
@@ -56,6 +55,9 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+      # Green only when the whole node is current (see cl.sh). A first sync
+      # from genesis takes hours: this badge stays at "starting" for that
+      # window; a restart of a synced node goes green in minutes.
       start_period: 6h
 
 volumes:

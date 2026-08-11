@@ -24,7 +24,7 @@ services:
       # writable layer. 0 = "background file logging is disabled" per --help.
       - --log.file.max-files=0
       - --disable-discovery
-      - --trusted-peers=${EL_ENODE}
+      - --trusted-peers=${EL_ENODES}
 
   consensus:
     image: ${CL_IMAGE}
@@ -37,6 +37,6 @@ services:
       - --execution-jwt=/secrets/jwtsecret
       - --http
       - --http-address=0.0.0.0
-      - --boot-nodes=${CL_ENR}
+      - --boot-nodes=${CL_ENRS}
       - --allow-insecure-genesis-sync
       - --ignore-ws-check

@@ -132,13 +132,20 @@ rm -rf artifacts
 mkdir artifacts
 cp -a "$NETWORK_DIR/." artifacts/
 
-# The published connection endpoints.
-p2p_value(){ grep -m1 "^$1:" artifacts/p2p.yaml | cut -d: -f2- | tr -d '[:space:]' || true; }
+# The published connection endpoints: YAML lists, one entry per watcher;
+# both clients take each whole list comma-joined.
+p2p_list(){
+  awk -v key="$1:" '
+    $1 == key { inlist = 1; next }
+    inlist && $1 == "-" { print $2; next }
+    inlist { exit }
+  ' artifacts/p2p.yaml | tr -d '"' | paste -sd, -
+}
 [ -f artifacts/p2p.yaml ] || die "p2p.yaml is missing — the network is not publishing an endpoint; try --refresh"
-EL_ENODE=$(p2p_value el_enode)
-CL_ENR=$(p2p_value cl_boot_enr)
-: "${EL_ENODE:?p2p.yaml carries no el_enode — try --refresh}"
-: "${CL_ENR:?p2p.yaml carries no cl_boot_enr — try --refresh}"
+EL_ENODES=$(p2p_list el_enodes)
+CL_ENRS=$(p2p_list cl_boot_enrs)
+: "${EL_ENODES:?p2p.yaml carries no el_enodes — try --refresh}"
+: "${CL_ENRS:?p2p.yaml carries no cl_boot_enrs — try --refresh}"
 
 # The execution image pin lives in the upstream script.
 EL_IMAGE=$(grep -m1 '^EL_IMAGE=' "$upstream_script" | cut -d= -f2-)
@@ -157,9 +164,9 @@ BASE_DOMAIN=$(meta_value baseDomain)
 
 # Render the override: image pins and command lines, peer endpoints
 # substituted in. Variables are whitelisted, envsubst doesn't modify others.
-export EL_IMAGE CL_IMAGE EL_ENODE CL_ENR
+export EL_IMAGE CL_IMAGE EL_ENODES CL_ENRS
 # shellcheck disable=SC2016  # Linter's complaint about variables not being expanded in single quotes is irrelevant.
-envsubst '${EL_IMAGE} ${CL_IMAGE} ${EL_ENODE} ${CL_ENR}' \
+envsubst '${EL_IMAGE} ${CL_IMAGE} ${EL_ENODES} ${CL_ENRS}' \
   < templates/compose.override.yaml.tmpl > compose.override.yaml
 note "Rendered compose.override.yaml."
 

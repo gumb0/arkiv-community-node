@@ -21,9 +21,9 @@ jobs:
         run: |
           export EL_IMAGE=example/el:ci \
                  CL_IMAGE=example/cl:ci \
-                 EL_ENODE='enode://00@127.0.0.1:30303' \
-                 CL_ENR='enr:-ci-dummy'
-          envsubst '${EL_IMAGE} ${CL_IMAGE} ${EL_ENODE} ${CL_ENR}' \
+                 EL_ENODES='enode://00@127.0.0.1:30303,enode://11@127.0.0.1:30304' \
+                 CL_ENRS='enr:-ci-a,enr:-ci-b'
+          envsubst '${EL_IMAGE} ${CL_IMAGE} ${EL_ENODES} ${CL_ENRS}' \
             < templates/compose.override.yaml.tmpl > compose.override.yaml
       - name: validate the merged stack
         run: docker compose config -q

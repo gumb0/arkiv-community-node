@@ -1,0 +1,4 @@
+name: fixture
+chainId: 999999
+baseDomain: example.org
+metered: false

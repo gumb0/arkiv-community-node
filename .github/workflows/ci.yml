@@ -6,24 +6,11 @@ on:
   pull_request:
 
 jobs:
-  shellcheck:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: shellcheck every shell script
-        run: git ls-files '*.sh' | xargs -r shellcheck
-
-  compose-validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: render the override template with dummy values
-        run: |
-          export EL_IMAGE=example/el:ci \
-                 CL_IMAGE=example/cl:ci \
-                 EL_ENODES='enode://00@127.0.0.1:30303,enode://11@127.0.0.1:30304' \
-                 CL_ENRS='enr:-ci-a,enr:-ci-b'
-          envsubst '${EL_IMAGE} ${CL_IMAGE} ${EL_ENODES} ${CL_ENRS}' \
-            < templates/compose.override.yaml.tmpl > compose.override.yaml
-      - name: validate the merged stack
-        run: docker compose config -q
+      - name: install envsubst
+        run: sudo apt-get update -q && sudo apt-get install -y -q gettext-base
+      - name: run the CI gate (same script runs locally)
+        run: tests/ci.sh

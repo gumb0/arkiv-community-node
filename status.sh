@@ -14,9 +14,9 @@ official RPC per run; everything else is local.
 
   --json   one-line JSON instead of the report
 
-Exit code: 0 = local node serving, right chain, and matching the reference
-(or reference unreachable — a reference outage is not a local problem).
-1 = something needs attention.
+Exit code: 0 = both clients answering, right chain, and matching the
+reference (or reference unreachable — a reference outage is not a local
+problem). 1 = something needs attention.
 EOF
 }
 
@@ -117,9 +117,13 @@ if ref_json=$(rpc "$OFFICIAL_RPC" eth_getBlockByNumber '["latest",false]'); then
 fi
 
 # ---- Verdict ---------------------------------------------------------------
+# Local faults fail the verdict; a reference problem never does. Syncing
+# and optimistic are normal transient states, reported but not faults.
 ok=true
 [ "$chain_ok" = true ] || ok=false
 [ "$hashes_match" = false ] && ok=false
+[ "$b_syncing" = unknown ] && ok=false      # the beacon node is not answering
+[ "$b_el_offline" = true ] && ok=false      # the two clients are not talking
 
 if [ "$JSON" = 1 ]; then
   printf '{"ok":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"reference":{"state":"%s","head":%s,"hashes_match":"%s"}}\n' \
@@ -152,6 +156,6 @@ else
     unreachable)
       printf '%sreference:  unreachable — local view only (not a local problem)%s\n' "$yellow" "$reset";;
   esac
-  [ "$ok" = true ] && printf 'verdict:    %sOK%s\n' "$green" "$reset" || printf 'verdict:    %sNEEDS ATTENTION%s\n' "$red" "$reset"
+  [ "$ok" = true ] && printf 'overall:    %sOK%s\n' "$green" "$reset" || printf 'overall:    %sNEEDS ATTENTION%s\n' "$red" "$reset"
 fi
 [ "$ok" = true ]

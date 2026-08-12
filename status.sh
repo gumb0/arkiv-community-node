@@ -48,11 +48,16 @@ CL="http://127.0.0.1:${CL_HTTP_PORT:-5052}"
 . .setup-state/artifacts.env   # OFFICIAL_RPC, CHAIN_ID
 
 rpc(){ # rpc <url> <method> [params-json]
+  # Fails when the request fails, which is how the caller below detects a
+  # node that is not answering; callers that can live without the answer
+  # add `|| true`.
   curl -sf -m 5 -X POST -H 'Content-Type: application/json' \
     --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$2\",\"params\":${3:-[]}}" "$1"
 }
-jfield(){ # jfield <name>  — first string/bool value of "name" on stdin
-  tr -d '\n\r' | grep -o "\"$1\": *\"\?[^\",}]*" | head -1 | sed 's/.*: *"\?//'
+jfield(){ # jfield <name>  — first value of "name" on stdin, empty when absent
+  # Never fails: a missing field is a value the caller decides about, not a
+  # reason to abort the run (errexit + pipefail would end it here).
+  tr -d '\n\r' | grep -o "\"$1\": *\"\?[^\",}]*" | head -1 | sed 's/.*: *"\?//' || true
 }
 hex2dec(){ printf '%d' "$((16#${1#0x}))"; }
 
@@ -64,15 +69,19 @@ fi
 local_hex=$(printf '%s' "$head_json" | jfield number)
 local_hash=$(printf '%s' "$head_json" | jfield hash)
 local_ts=$(printf '%s' "$head_json" | jfield timestamp)
+chain_hex=$(rpc "$EL" eth_chainId | jfield result || true)
+if [ -z "$local_hex" ] || [ -z "$local_hash" ] || [ -z "$local_ts" ] || [ -z "$chain_hex" ]; then
+  printf 'unexpected response from the local RPC at %s — is it an Arkiv node?\n' "$EL" >&2
+  exit 1
+fi
 local_head=$(hex2dec "$local_hex")
 age=$(( $(date +%s) - $(hex2dec "$local_ts") ))
 
-chain_hex=$(rpc "$EL" eth_chainId | jfield result)
 chain_ok=false
 [ "$(hex2dec "$chain_hex")" = "$CHAIN_ID" ] && chain_ok=true
 
-peers_hex=$(rpc "$EL" net_peerCount | jfield result || printf '0x0')
-el_peers=$(hex2dec "$peers_hex")
+peers_hex=$(rpc "$EL" net_peerCount | jfield result || true)
+el_peers=$(hex2dec "${peers_hex:-0x0}")
 
 # ---- Local CL node ----------------------------------------------------------
 if beacon_json=$(curl -sf -m 5 "$CL/eth/v1/node/syncing"); then
@@ -82,16 +91,21 @@ if beacon_json=$(curl -sf -m 5 "$CL/eth/v1/node/syncing"); then
 else
   b_syncing=unknown b_optimistic=unknown b_el_offline=unknown
 fi
-cl_peers=$(curl -sf -m 5 "$CL/eth/v1/node/peer_count" | jfield connected || printf 'unknown')
+cl_peers=$(curl -sf -m 5 "$CL/eth/v1/node/peer_count" | jfield connected || true)
+cl_peers=${cl_peers:-unknown}
 
 # ---- Official RPC reference -------------------------------------------------
 # One metered request in the common case: the reference's head block carries
 # its number and hash together. A second is needed only while this node is
 # behind, to ask for their hash at our height.
 ref_state=unreachable ref_head='' hashes_match=unknown
-if ref_json=$(rpc "$OFFICIAL_RPC" eth_getBlockByNumber '["latest",false]'); then
+ref_json=$(rpc "$OFFICIAL_RPC" eth_getBlockByNumber '["latest",false]' || true)
+ref_hex=$(printf '%s' "$ref_json" | jfield number)
+# An answer without a block number (an error body under HTTP 200, say) is as
+# useful as no answer, and just as much not this node's problem.
+if [ -n "$ref_hex" ]; then
   ref_state=reachable
-  ref_head=$(hex2dec "$(printf '%s' "$ref_json" | jfield number)")
+  ref_head=$(hex2dec "$ref_hex")
   # Compare at the highest height both sides have.
   min=$(( local_head < ref_head ? local_head : ref_head ))
   min_hex=$(printf '0x%x' "$min")
@@ -103,11 +117,11 @@ if ref_json=$(rpc "$OFFICIAL_RPC" eth_getBlockByNumber '["latest",false]'); then
   if [ "$min" = "$local_head" ]; then
     local_min_hash=$local_hash
   else
-    local_min_hash=$(rpc "$EL" eth_getBlockByNumber "[\"$min_hex\",false]" | jfield hash)
+    local_min_hash=$(rpc "$EL" eth_getBlockByNumber "[\"$min_hex\",false]" | jfield hash || true)
   fi
-  # No reference hash means the comparison could not be made — not a
-  # mismatch. A reference problem is never this node's fault.
-  if [ -z "$ref_hash" ]; then
+  # A missing hash on either side means the comparison could not be made —
+  # not a mismatch. A reference problem is never this node's fault.
+  if [ -z "$ref_hash" ] || [ -z "$local_min_hash" ]; then
     hashes_match=unknown
   elif [ "$ref_hash" = "$local_min_hash" ]; then
     hashes_match=true

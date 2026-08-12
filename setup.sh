@@ -162,6 +162,8 @@ CHAIN_ID=$(meta_value chainId)
 NET_NAME=$(meta_value name)
 BASE_DOMAIN=$(meta_value baseDomain)
 : "${CHAIN_ID:?could not read chainId from metadata.yaml}"
+: "${NET_NAME:?could not read name from metadata.yaml}"
+: "${BASE_DOMAIN:?could not read baseDomain from metadata.yaml}"
 
 # Render the override: image pins and command lines, peer endpoints
 # substituted in. Variables are whitelisted, envsubst doesn't modify others.

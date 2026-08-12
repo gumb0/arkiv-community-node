@@ -163,8 +163,12 @@ else
                  printf '            resync: docker compose down -v && ./setup.sh --refresh\n';;
         unknown) printf '%shash comparison unavailable (request failed)%s\n' "$yellow" "$reset";;
       esac
-      if [ "$hashes_match" = true ] && [ "$age" -gt 60 ]; then
-        printf '%snote:       in agreement with the reference, but the chain is quiet for %ss%s\n' "$yellow" "$age" "$reset"
+      if [ "$hashes_match" = true ]; then
+        if [ "$ref_head" -gt "$local_head" ]; then
+          printf '%snote:       behind the reference by %s blocks%s\n' "$yellow" "$(( ref_head - local_head ))" "$reset"
+        elif [ "$age" -gt 60 ]; then
+          printf '%snote:       level with the reference, but the chain is quiet for %ss%s\n' "$yellow" "$age" "$reset"
+        fi
       fi;;
     unreachable)
       printf '%sreference:  unreachable — local view only (not a local problem)%s\n' "$yellow" "$reset";;

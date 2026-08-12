@@ -102,14 +102,22 @@ if [ -f "$stored_genesis_file" ] && [ "$(cat "$stored_genesis_file")" != "$genes
       read -r reply
     fi
     case "$reply" in
-      y|Y) docker compose down -v; note "Chain data wiped.";;
-      *)   note "WARNING: keeping old chain data. The node cannot follow the new";
-           note "chain until you run: docker compose down -v && ./setup.sh";;
+      y|Y) docker compose down -v
+           rm -f "$stored_genesis_file"
+           note "Chain data wiped.";;
+      *)   note "Keeping the old chain data — nothing else was changed."
+           note "The node cannot follow the new chain until it resyncs:"
+           note "  docker compose down -v && ./setup.sh"
+           exit 1;;
     esac
   fi
 fi
-# A render-only run records nothing: the next real run must still detect.
-[ "$RENDER_ONLY" = 1 ] || printf '%s\n' "$genesis_sha" > "$stored_genesis_file"
+# The record says which genesis the chain data was synced from, so it is
+# written when there is no data yet — a first run, or just after a wipe.
+# A declined wipe leaves the old record, and is detected again next time.
+if [ ! -f "$stored_genesis_file" ] && [ "$RENDER_ONLY" != 1 ]; then
+  printf '%s\n' "$genesis_sha" > "$stored_genesis_file"
+fi
 
 # Drift check: our compose translation follows the upstream run-node.sh.
 # When upstream changes, the translation must be reviewed by a human —

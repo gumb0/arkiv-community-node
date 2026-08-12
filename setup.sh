@@ -177,10 +177,21 @@ if [ "$RENDER_ONLY" = 1 ]; then
 fi
 
 # Copy the artifacts in: after setup, the running stack never depends on
-# where the operator keeps their artifacts clone.
-rm -rf artifacts
-mkdir artifacts
-cp -a "$NETWORK_DIR/." artifacts/
+# where the operator keeps their artifacts clone. SHA256SUMS covers every
+# file, so its own hash says whether anything changed since the last run.
+artifacts_sha=$(sha256sum "$NETWORK_DIR/SHA256SUMS" | cut -d' ' -f1)
+stored_artifacts_file=.setup-state/artifacts.sha256
+recreate=0
+if [ ! -d artifacts ] || [ ! -f "$stored_artifacts_file" ] ||
+   [ "$(cat "$stored_artifacts_file")" != "$artifacts_sha" ]; then
+  rm -rf artifacts
+  mkdir artifacts
+  cp -a "$NETWORK_DIR/." artifacts/
+  printf '%s\n' "$artifacts_sha" > "$stored_artifacts_file"
+  # Clients read these files only at startup, and compose does not notice
+  # content changes behind a bind mount, so the change has to be pushed in.
+  recreate=1
+fi
 
 # Values the status script needs.
 {
@@ -199,7 +210,11 @@ fi
 
 docker compose config -q || die "the rendered stack does not validate"
 docker compose pull
-docker compose up -d
+if [ "$recreate" = 1 ]; then
+  docker compose up -d --force-recreate
+else
+  docker compose up -d
+fi
 
 # A container that refuses its arguments dies within a second or two —
 # confirm the start before calling it a success.

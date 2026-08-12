@@ -15,7 +15,7 @@ official RPC per run; everything else is local.
   --json   one-line JSON instead of the report
 
 Exit code: 0 = both clients answering, right chain, and matching the
-reference (or reference unreachable — a reference outage is not a local
+reference RPC (or reference unreachable — a reference outage is not a local
 problem). 1 = something needs attention.
 EOF
 }
@@ -137,17 +137,30 @@ else
     red=$'\e[31m' green=$'\e[32m' yellow=$'\e[33m' reset=$'\e[0m'
   fi
   printf 'chain id:   %s' "$(hex2dec "$chain_hex")"
-  [ "$chain_ok" = true ] && printf ' (matches the network artifacts)\n' || printf ' — %sEXPECTED %s: wrong network!%s\n' "$red" "$CHAIN_ID" "$reset"
+  if [ "$chain_ok" = true ]; then
+    printf ' (matches the network artifacts)\n'
+  else
+    printf ' — %sEXPECTED %s: wrong network!%s\n' "$red" "$CHAIN_ID" "$reset"
+    printf '            check NETWORK_DIR in .env; to switch networks:\n'
+    printf '            docker compose down -v && ./setup.sh\n'
+  fi
   printf 'local head: #%s %s (age %ss)\n' "$local_head" "$local_hash" "$age"
   printf 'execution:  peers %s\n' "$el_peers"
-  printf 'beacon:     syncing=%s optimistic=%s el_offline=%s, peers %s\n' \
-    "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers"
+  if [ "$b_syncing" = unknown ]; then
+    printf '%sbeacon:     not answering at %s — is it running? (docker compose ps)%s\n' "$red" "$CL" "$reset"
+  else
+    printf 'beacon:     syncing=%s optimistic=%s el_offline=%s, peers %s\n' \
+      "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers"
+  fi
   case "$ref_state" in
     reachable)
       printf 'reference:  head #%s — ' "$ref_head"
       case "$hashes_match" in
         true)    printf 'hashes match at #%s\n' "$min";;
-        false)   printf '%sHASH MISMATCH at #%s — local %s vs reference %s%s\n' "$red" "$min" "$local_min_hash" "$ref_hash" "$reset";;
+        false)   printf '%sHASH MISMATCH at #%s — local %s vs reference %s%s\n' "$red" "$min" "$local_min_hash" "$ref_hash" "$reset"
+                 printf '            a brief fork at the head can cause this — re-run to check\n'
+                 printf '            if it persists, this node followed a different chain and must\n'
+                 printf '            resync: docker compose down -v && ./setup.sh --refresh\n';;
         unknown) printf '%shash comparison unavailable (request failed)%s\n' "$yellow" "$reset";;
       esac
       if [ "$hashes_match" = true ] && [ "$age" -gt 60 ]; then

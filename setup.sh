@@ -153,7 +153,7 @@ CL_ENRS=$(p2p_list cl_boot_enrs)
 : "${CL_ENRS:?p2p.yaml carries no cl_boot_enrs — try --refresh}"
 
 # The execution image pin lives in the upstream script.
-EL_IMAGE=$(grep -m1 '^EL_IMAGE=' "$upstream_script" | cut -d= -f2-)
+EL_IMAGE=$(grep -m1 '^EL_IMAGE=' "$upstream_script" | cut -d= -f2- || true)
 : "${EL_IMAGE:?could not extract EL_IMAGE from $upstream_script}"
 
 # Values the status script needs, derived from the network metadata.

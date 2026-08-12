@@ -9,7 +9,7 @@ Usage: ./status.sh [--json]
 
 Chain-level truth about this node, checked on demand. Answers what the
 health badges cannot: am I on the right chain, am I current, does my view
-match the official reference? Makes exactly two requests to the (metered)
+match the official reference? Makes at most two requests to the (metered)
 official RPC per run; everything else is local.
 
   --json   one-line JSON instead of the report
@@ -84,21 +84,32 @@ else
 fi
 cl_peers=$(curl -sf -m 5 "$CL/eth/v1/node/peer_count" | jfield connected || printf 'unknown')
 
-# ---- Official reference (metered: two requests, gently) -------------------
-ref_state=unreachable ref_head='' hashes_match=''
-if ref_hex=$(rpc "$OFFICIAL_RPC" eth_blockNumber | jfield result); then
+# ---- Official RPC reference -------------------------------------------------
+# One metered request in the common case: the reference's head block carries
+# its number and hash together. A second is needed only while this node is
+# behind, to ask for their hash at our height.
+ref_state=unreachable ref_head='' hashes_match=unknown
+if ref_json=$(rpc "$OFFICIAL_RPC" eth_getBlockByNumber '["latest",false]'); then
   ref_state=reachable
-  ref_head=$(hex2dec "$ref_hex")
-  # Compare hashes at the highest height both sides have.
-  cmp=$(( local_head < ref_head ? local_head : ref_head ))
-  cmp_hex=$(printf '0x%x' "$cmp")
-  ref_hash=$(rpc "$OFFICIAL_RPC" eth_getBlockByNumber "[\"$cmp_hex\",false]" | jfield hash || true)
-  if [ "$cmp" = "$local_head" ]; then
-    local_cmp_hash=$local_hash
+  ref_head=$(hex2dec "$(printf '%s' "$ref_json" | jfield number)")
+  # Compare at the highest height both sides have.
+  min=$(( local_head < ref_head ? local_head : ref_head ))
+  min_hex=$(printf '0x%x' "$min")
+  if [ "$min" = "$ref_head" ]; then
+    ref_hash=$(printf '%s' "$ref_json" | jfield hash)
   else
-    local_cmp_hash=$(rpc "$EL" eth_getBlockByNumber "[\"$cmp_hex\",false]" | jfield hash)
+    ref_hash=$(rpc "$OFFICIAL_RPC" eth_getBlockByNumber "[\"$min_hex\",false]" | jfield hash || true)
   fi
-  if [ -n "$ref_hash" ] && [ "$ref_hash" = "$local_cmp_hash" ]; then
+  if [ "$min" = "$local_head" ]; then
+    local_min_hash=$local_hash
+  else
+    local_min_hash=$(rpc "$EL" eth_getBlockByNumber "[\"$min_hex\",false]" | jfield hash)
+  fi
+  # No reference hash means the comparison could not be made — not a
+  # mismatch. A reference problem is never this node's fault.
+  if [ -z "$ref_hash" ]; then
+    hashes_match=unknown
+  elif [ "$ref_hash" = "$local_min_hash" ]; then
     hashes_match=true
   else
     hashes_match=false
@@ -111,10 +122,10 @@ ok=true
 [ "$hashes_match" = false ] && ok=false
 
 if [ "$JSON" = 1 ]; then
-  printf '{"ok":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"reference":{"state":"%s","head":%s,"hashes_match":%s}}\n' \
+  printf '{"ok":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"reference":{"state":"%s","head":%s,"hashes_match":"%s"}}\n' \
     "$ok" "$chain_ok" "$local_head" "$local_hash" "$age" "$el_peers" \
     "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers" \
-    "$ref_state" "${ref_head:-null}" "${hashes_match:-null}"
+    "$ref_state" "${ref_head:-null}" "$hashes_match"
 else
   # Color only on a terminal, and never when NO_COLOR is set.
   red='' green='' yellow='' reset=''
@@ -130,8 +141,11 @@ else
   case "$ref_state" in
     reachable)
       printf 'reference:  head #%s — ' "$ref_head"
-      if [ "$hashes_match" = true ]; then printf 'hashes match at #%s\n' "$cmp"
-      else printf '%sHASH MISMATCH at #%s — local %s vs reference %s%s\n' "$red" "$cmp" "$local_cmp_hash" "${ref_hash:-none}" "$reset"; fi
+      case "$hashes_match" in
+        true)    printf 'hashes match at #%s\n' "$min";;
+        false)   printf '%sHASH MISMATCH at #%s — local %s vs reference %s%s\n' "$red" "$min" "$local_min_hash" "$ref_hash" "$reset";;
+        unknown) printf '%shash comparison unavailable (request failed)%s\n' "$yellow" "$reset";;
+      esac
       if [ "$hashes_match" = true ] && [ "$age" -gt 60 ]; then
         printf '%snote:       in agreement with the reference, but the chain is quiet for %ss%s\n' "$yellow" "$age" "$reset"
       fi;;

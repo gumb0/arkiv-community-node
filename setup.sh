@@ -99,7 +99,7 @@ if [ -f "$stored_genesis_file" ] && [ "$(cat "$stored_genesis_file")" != "$genes
       reply=y
     else
       printf 'Wipe chain data now? [y/N] '
-      read -r reply
+      read -r reply || reply=n   # if no terminal to ask: default to no
     fi
     case "$reply" in
       y|Y) docker compose down -v

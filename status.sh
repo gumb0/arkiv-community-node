@@ -116,8 +116,13 @@ if [ "$JSON" = 1 ]; then
     "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers" \
     "$ref_state" "${ref_head:-null}" "${hashes_match:-null}"
 else
+  # Color only on a terminal, and never when NO_COLOR is set.
+  red='' green='' yellow='' reset=''
+  if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    red=$'\e[31m' green=$'\e[32m' yellow=$'\e[33m' reset=$'\e[0m'
+  fi
   printf 'chain id:   %s' "$(hex2dec "$chain_hex")"
-  [ "$chain_ok" = true ] && printf ' (matches the network artifacts)\n' || printf ' — EXPECTED %s: wrong network!\n' "$CHAIN_ID"
+  [ "$chain_ok" = true ] && printf ' (matches the network artifacts)\n' || printf ' — %sEXPECTED %s: wrong network!%s\n' "$red" "$CHAIN_ID" "$reset"
   printf 'local head: #%s %s (age %ss)\n' "$local_head" "$local_hash" "$age"
   printf 'execution:  peers %s\n' "$el_peers"
   printf 'beacon:     syncing=%s optimistic=%s el_offline=%s, peers %s\n' \
@@ -126,13 +131,13 @@ else
     reachable)
       printf 'reference:  head #%s — ' "$ref_head"
       if [ "$hashes_match" = true ]; then printf 'hashes match at #%s\n' "$cmp"
-      else printf 'HASH MISMATCH at #%s — local %s vs reference %s\n' "$cmp" "$local_cmp_hash" "${ref_hash:-none}"; fi
+      else printf '%sHASH MISMATCH at #%s — local %s vs reference %s%s\n' "$red" "$cmp" "$local_cmp_hash" "${ref_hash:-none}" "$reset"; fi
       if [ "$hashes_match" = true ] && [ "$age" -gt 60 ]; then
-        printf 'note:       in agreement with the reference, but the chain is quiet for %ss\n' "$age"
+        printf '%snote:       in agreement with the reference, but the chain is quiet for %ss%s\n' "$yellow" "$age" "$reset"
       fi;;
     unreachable)
-      printf 'reference:  unreachable — local view only (not a local problem)\n';;
+      printf '%sreference:  unreachable — local view only (not a local problem)%s\n' "$yellow" "$reset";;
   esac
-  [ "$ok" = true ] && printf 'verdict:    OK\n' || printf 'verdict:    NEEDS ATTENTION\n'
+  [ "$ok" = true ] && printf 'verdict:    %sOK%s\n' "$green" "$reset" || printf 'verdict:    %sNEEDS ATTENTION%s\n' "$red" "$reset"
 fi
 [ "$ok" = true ]

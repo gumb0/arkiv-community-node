@@ -126,11 +126,8 @@ if [ -f "$upstream_script" ]; then
   [ "$RENDER_ONLY" = 1 ] || printf '%s\n' "$upstream_sha" > "$stored_upstream_file"
 fi
 
-# Copy the artifacts in: after setup, the running stack never depends on
-# where the operator keeps their artifacts clone.
-rm -rf artifacts
-mkdir artifacts
-cp -a "$NETWORK_DIR/." artifacts/
+# Values are read from the source directory; the copy below is for the
+# running stack, so a render-only run leaves the deployment untouched.
 
 # The published connection endpoints: YAML lists, one entry per watcher;
 # both clients take each whole list comma-joined.
@@ -139,9 +136,9 @@ p2p_list(){
     $1 == key { inlist = 1; next }
     inlist && $1 == "-" { print $2; next }
     inlist { exit }
-  ' artifacts/p2p.yaml | tr -d '"' | paste -sd, -
+  ' "$NETWORK_DIR/p2p.yaml" | tr -d '"' | paste -sd, -
 }
-[ -f artifacts/p2p.yaml ] || die "p2p.yaml is missing — the network is not publishing an endpoint; try --refresh"
+[ -f "$NETWORK_DIR/p2p.yaml" ] || die "p2p.yaml is missing — the network is not publishing an endpoint; try --refresh"
 EL_ENODES=$(p2p_list el_enodes)
 CL_ENRS=$(p2p_list cl_boot_enrs)
 : "${EL_ENODES:?p2p.yaml carries no el_enodes — try --refresh}"
@@ -152,15 +149,11 @@ EL_IMAGE=$(grep -m1 '^EL_IMAGE=' "$upstream_script" | cut -d= -f2-)
 : "${EL_IMAGE:?could not extract EL_IMAGE from $upstream_script}"
 
 # Values the status script needs, derived from the network metadata.
-meta_value(){ grep -m1 "^$1:" artifacts/metadata.yaml | cut -d: -f2- | tr -d '[:space:]' || true; }
+meta_value(){ grep -m1 "^$1:" "$NETWORK_DIR/metadata.yaml" | cut -d: -f2- | tr -d '[:space:]' || true; }
 CHAIN_ID=$(meta_value chainId)
 NET_NAME=$(meta_value name)
 BASE_DOMAIN=$(meta_value baseDomain)
 : "${CHAIN_ID:?could not read chainId from metadata.yaml}"
-{
-  printf 'OFFICIAL_RPC=https://rpc.%s.db-chain.%s\n' "$NET_NAME" "$BASE_DOMAIN"
-  printf 'CHAIN_ID=%s\n' "$CHAIN_ID"
-} > .setup-state/artifacts.env
 
 # Render the override: image pins and command lines, peer endpoints
 # substituted in. Variables are whitelisted, envsubst doesn't modify others.
@@ -171,9 +164,21 @@ envsubst '${EL_IMAGE} ${CL_IMAGE} ${EL_ENODES} ${CL_ENRS}' \
 note "Rendered compose.override.yaml."
 
 if [ "$RENDER_ONLY" = 1 ]; then
-  note "Render-only run: nothing started."
+  note "Render-only run: nothing else written, nothing started."
   exit 0
 fi
+
+# Copy the artifacts in: after setup, the running stack never depends on
+# where the operator keeps their artifacts clone.
+rm -rf artifacts
+mkdir artifacts
+cp -a "$NETWORK_DIR/." artifacts/
+
+# Values the status script needs.
+{
+  printf 'OFFICIAL_RPC=https://rpc.%s.db-chain.%s\n' "$NET_NAME" "$BASE_DOMAIN"
+  printf 'CHAIN_ID=%s\n' "$CHAIN_ID"
+} > .setup-state/artifacts.env
 
 # The JWT is a local secret shared by the two clients; minted once, kept.
 mkdir -p secrets

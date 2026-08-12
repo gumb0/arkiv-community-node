@@ -16,6 +16,9 @@ services:
       # client), never for the internet.
       - "127.0.0.1:${EL_RPC_PORT:-8545}:8545"
     restart: unless-stopped
+    # A maximum, not a delay: docker continues as soon as the client exits.
+    # Killing it mid-flush costs recovery work, or a repair, on the next start.
+    stop_grace_period: 3m
     logging:
       driver: json-file
       options:
@@ -45,6 +48,7 @@ services:
     ports:
       - "127.0.0.1:${CL_HTTP_PORT:-5052}:5052"
     restart: unless-stopped
+    stop_grace_period: 1m
     logging:
       driver: json-file
       options:

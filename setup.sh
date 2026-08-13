@@ -19,7 +19,7 @@ stack. Re-running is safe and is also the update procedure.
 
   --refresh      git pull the artifacts repo first
   --render-only  stop after rendering, start nothing
-  --yes          answer yes to the wipe prompt
+  --yes          answer yes to the chain-data wipe prompt (see below)
 
 When the network's genesis changes (a re-genesis), the old chain data is
 useless and must be wiped before the node can follow the new chain. This

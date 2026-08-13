@@ -116,7 +116,7 @@ want):
 
 ```bash
 docker compose down                # stop the node first
-sudo systemctl stop docker
+sudo systemctl stop docker.socket docker
 sudo rsync -a /var/lib/docker/ /mnt/bigdisk/docker/
 echo '{ "data-root": "/mnt/bigdisk/docker" }' | sudo tee /etc/docker/daemon.json
 sudo systemctl start docker

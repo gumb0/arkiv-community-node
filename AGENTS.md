@@ -31,9 +31,19 @@ sysadmins.
 
 - Scripting is bash + `envsubst` templating, deliberately boring: an operator
   should be able to read a template and see what it produces.
-- Docker healthchecks stay process-level ("up and serving RPC") and use local
-  data only; chain-level truth (right chain, current head) belongs to the
-  status script.
+- Docker healthchecks use local data only and never call anything outside the
+  machine. Each badge has a precise claim — execution: serving JSON-RPC;
+  consensus: the node is current, by the beacon node's own view. Anything
+  involving the official RPC belongs to the status script
+  (see `docs/DESIGN.md` for the full model).
+- The compose stack is a hand-made translation of the network operator's own
+  node-running script; `setup.sh` warns when that script changes upstream, and
+  the answer is to re-review and adapt the translation — never to suppress the
+  warning. Artifact parsing stays byte-compatible with upstream's own scripts:
+  being more tolerant would hide upstream formatting problems.
+- `tests/ci.sh` is the entire test suite, runnable locally; it must pass
+  before committing. CI runs the same script — do not add checks to the
+  workflow directly.
 - Provider tooling is TypeScript on the official Arkiv SDK, run in a container
   so operators never install Node on the host.
 - Prose (README, comments) targets non-native readers: simple words, short

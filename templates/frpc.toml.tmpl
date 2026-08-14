@@ -1,0 +1,29 @@
+# Template for frpc.toml — the tunnel client config for NAT'd providers.
+# Verified against frp v0.61.1. Not rendered by setup.sh yet: the values
+# come from agreeing terms with a load balancer, which is part of provider
+# onboarding (a later block). Until then, substitute by hand.
+#
+# FRP_SERVER_ADDR — the LB's tunnel host
+# FRP_AUTH_TOKEN  — static shared token (interim; replaced by per-provider
+#                   signature auth when marketplace onboarding lands)
+# FRP_REMOTE_PORT — the port assigned to this provider on the LB host;
+#                   it exists on the LB's loopback only, never public
+
+serverAddr = "${FRP_SERVER_ADDR}"
+serverPort = 7000
+auth.token = "${FRP_AUTH_TOKEN}"
+# Keep retrying when the server is unreachable (e.g. LB restart) instead of
+# exiting; reconnects unattended in ~10 s once the server is back.
+loginFailExit = false
+
+# Local status endpoint, for the status script: GET /api/status reports the
+# proxy state. Loopback only.
+webServer.addr = "127.0.0.1"
+webServer.port = 7400
+
+[[proxies]]
+name = "node-rpc"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 8545
+remotePort = ${FRP_REMOTE_PORT}

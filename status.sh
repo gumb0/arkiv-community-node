@@ -95,9 +95,11 @@ cl_peers=$(curl -sf -m 5 "$CL/eth/v1/node/peer_count" | jfield connected || prin
 tunnel_state=off tunnel_err=''
 if [ "$tunnel_on" = 1 ]; then
   if tunnel_json=$(curl -sf -m 5 "http://127.0.0.1:${TUNNEL_STATUS_PORT:-7400}/api/status"); then
-    tunnel_state=$(printf '%s' "$tunnel_json" | jfield status)
-    [ -n "$tunnel_state" ] || tunnel_state=unknown
-    tunnel_err=$(printf '%s' "$tunnel_json" | jfield err)
+    # While not connected the endpoint answers with {} — no status field at
+    # all, so the extraction must survive finding nothing.
+    tunnel_state=$(printf '%s' "$tunnel_json" | jfield status || true)
+    [ -n "$tunnel_state" ] || tunnel_state=disconnected
+    tunnel_err=$(printf '%s' "$tunnel_json" | jfield err || true)
   else
     tunnel_state=unreachable
   fi
@@ -176,9 +178,11 @@ else
   fi
   if [ "$tunnel_on" = 1 ]; then
     case "$tunnel_state" in
-      running)     printf 'tunnel:     connected, proxy running\n';;
-      unreachable) printf '%stunnel:     status endpoint not answering — is the tunnel service running? (docker compose ps)%s\n' "$red" "$reset";;
-      *)           printf '%stunnel:     proxy %s%s%s\n' "$red" "$tunnel_state" "${tunnel_err:+ — $tunnel_err}" "$reset";;
+      running)      printf 'tunnel:     connected, proxy running\n';;
+      disconnected) printf '%stunnel:     not connected to the tunnel server%s\n' "$red" "$reset"
+                    printf '            the client log has the reason: docker compose logs --tail 5 tunnel\n';;
+      unreachable)  printf '%stunnel:     status endpoint not answering — is the tunnel service running? (docker compose ps)%s\n' "$red" "$reset";;
+      *)            printf '%stunnel:     proxy %s%s%s\n' "$red" "$tunnel_state" "${tunnel_err:+ — $tunnel_err}" "$reset";;
     esac
   fi
   case "$ref_state" in

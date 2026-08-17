@@ -165,7 +165,11 @@ the fix. Beyond that:
   the chain is quiet", the network itself is paused; nothing to fix
   locally.
 - **A container restarting in a loop** — `docker compose logs <service>`;
-  the first error line names the cause.
+  the first error line names the cause. If there is no error line at all,
+  suspect the kernel killing the process for lack of memory:
+  `dmesg | grep -i 'out of memory'`. This one disguises itself well — the
+  node looks healthy between kills and the sync just never finishes; the
+  fix is more memory.
 
 ## Known limitations
 

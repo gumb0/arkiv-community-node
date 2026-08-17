@@ -75,6 +75,7 @@ services:
       - execution
     volumes:
       - ./frpc.toml:/etc/frp/frpc.toml:ro
+      - ./healthchecks:/hc:ro
     ports:
       # frpc's own status endpoint, for status.sh. Loopback only.
       - "127.0.0.1:${TUNNEL_STATUS_PORT:-7400}:7400"
@@ -84,6 +85,14 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
+    healthcheck:
+      test: ["CMD", "sh", "/hc/tunnel.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Connecting takes seconds; anything longer is a config problem
+      # worth showing.
+      start_period: 30s
 
 volumes:
   el-data:

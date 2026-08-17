@@ -56,6 +56,7 @@ running its infrastructure. The audience sets the constraints:
 | `setup.sh` | Verify → detect changes → build configuration → start; re-running is the update procedure, and nothing is wiped without asking |
 | `status.sh` | Chain-level truth on demand, including a comparison against the official RPC; operator-invoked, separate from the health badges |
 | `healthchecks/*.sh` | The badge predicates, running inside the containers on local data only ([health model](#4-health-model)) |
+| `tunnel/`, `frpc.toml` (generated) | The optional tunnel client: a locally built image and its rendered config ([the tunnel](#6-the-tunnel-optional)) |
 
 ## 3. Configuration model
 
@@ -144,7 +145,33 @@ RPC. Its design rules:
   node is behind. It uses the public endpoint as-is — no API key involved.
 - Every failure line says what to do next, not only what is wrong.
 
-## 6. Testing
+## 6. The tunnel (optional)
+
+A node behind NAT cannot be reached from outside; the distribution can
+serve its JSON-RPC through a **tunnel server** instead. This is an opt-in
+overlay: a compose profile, off by default, enabled by one `.env` line
+plus three values the tunnel server operator provides (server address,
+auth token, assigned port). The tunnel client is
+[frp](https://github.com/fatedier/frp); it opens one outbound connection
+and keeps retrying on its own when the server is away, so a server
+restart needs no action from the operator.
+
+Design choices:
+
+- **The client runs inside the compose stack**, not as a host process —
+  one lifecycle for everything (`up`, `down`, logs, restart policy).
+- **The image is built locally** from the pinned upstream release, checksum
+  verified in the Dockerfile — no third-party image to trust, same trust
+  chain as everything else in the stack.
+- **Configuration follows the [model](#3-configuration-model):** the
+  `TUNNEL_*` values are operator values in `.env` (the token is a secret
+  and stays there), and the client config is rendered from a template by
+  `setup.sh` like the rest.
+- **"Up" does not mean "connected", so the tunnel gets its own badge.** The healthcheck asks the
+  client's own local status endpoint whether the proxy is running, and
+  `status.sh` reports the same distinction.
+
+## 7. Testing
 
 `tests/ci.sh` holds the entire test suite in one script, runnable locally
 and run identically by CI: shellcheck over every script, a render through
@@ -153,7 +180,7 @@ real checksums — setup verifies them like the real thing), a validation of
 the merged compose stack, and assertions that the fixture values landed in
 the output.
 
-## 7. Possible future improvements
+## 8. Possible future improvements
 
 - **Monitoring overlay**: an optional uptime probe and metrics, as an
   opt-in addition — in line with the "anything optional is an overlay"

@@ -10,7 +10,8 @@ Usage: ./status.sh [--json]
 Chain-level truth about this node, checked on demand. Answers what the
 health badges cannot: am I on the right chain, am I current, does my view
 match the official reference? Makes at most two requests to the (metered)
-official RPC per run; everything else is local.
+official RPC per run; everything else is local. When the tunnel profile
+is enabled, also checks that the tunnel is up.
 
   --json   one-line JSON instead of the report
 
@@ -31,6 +32,8 @@ esac
 # Operator ports from .env file (environment variables win, same rule as setup.sh).
 env_el_port="${EL_RPC_PORT:-}"
 env_cl_port="${CL_HTTP_PORT:-}"
+env_profiles="${COMPOSE_PROFILES:-}"
+env_tunnel_status_port="${TUNNEL_STATUS_PORT:-}"
 if [ -f .env ]; then
   set -a
   # shellcheck source=/dev/null # .env does not exist on CI and linter would complain
@@ -39,8 +42,12 @@ if [ -f .env ]; then
 fi
 [ -n "$env_el_port" ] && EL_RPC_PORT="$env_el_port"
 [ -n "$env_cl_port" ] && CL_HTTP_PORT="$env_cl_port"
+[ -n "$env_profiles" ] && COMPOSE_PROFILES="$env_profiles"
+[ -n "$env_tunnel_status_port" ] && TUNNEL_STATUS_PORT="$env_tunnel_status_port"
 EL="http://127.0.0.1:${EL_RPC_PORT:-8545}"
 CL="http://127.0.0.1:${CL_HTTP_PORT:-5052}"
+tunnel_on=0
+case ",${COMPOSE_PROFILES:-}," in *,tunnel,*) tunnel_on=1;; esac
 
 # Network identity, written by setup.sh.
 [ -f .setup-state/artifacts.env ] || { printf 'status.sh: no .setup-state/artifacts.env — run ./setup.sh first\n' >&2; exit 1; }
@@ -84,6 +91,18 @@ else
 fi
 cl_peers=$(curl -sf -m 5 "$CL/eth/v1/node/peer_count" | jfield connected || printf 'unknown')
 
+# ---- Tunnel client (only when the tunnel profile is enabled) ----------------
+tunnel_state=off tunnel_err=''
+if [ "$tunnel_on" = 1 ]; then
+  if tunnel_json=$(curl -sf -m 5 "http://127.0.0.1:${TUNNEL_STATUS_PORT:-7400}/api/status"); then
+    tunnel_state=$(printf '%s' "$tunnel_json" | jfield status)
+    [ -n "$tunnel_state" ] || tunnel_state=unknown
+    tunnel_err=$(printf '%s' "$tunnel_json" | jfield err)
+  else
+    tunnel_state=unreachable
+  fi
+fi
+
 # ---- Official RPC reference -------------------------------------------------
 # One metered request in the common case: the reference's head block carries
 # its number and hash together. A second is needed only while this node is
@@ -124,12 +143,15 @@ ok=true
 [ "$hashes_match" = false ] && ok=false
 [ "$b_syncing" = unknown ] && ok=false      # the beacon node is not answering
 [ "$b_el_offline" = true ] && ok=false      # the two clients are not talking
+if [ "$tunnel_state" != off ] && [ "$tunnel_state" != running ]; then
+  ok=false
+fi
 
 if [ "$JSON" = 1 ]; then
-  printf '{"ok":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"reference":{"state":"%s","head":%s,"hashes_match":"%s"}}\n' \
+  printf '{"ok":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"tunnel":"%s","reference":{"state":"%s","head":%s,"hashes_match":"%s"}}\n' \
     "$ok" "$chain_ok" "$local_head" "$local_hash" "$age" "$el_peers" \
     "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers" \
-    "$ref_state" "${ref_head:-null}" "$hashes_match"
+    "$tunnel_state" "$ref_state" "${ref_head:-null}" "$hashes_match"
 else
   # Color only on a terminal, and never when NO_COLOR is set.
   red='' green='' yellow='' reset=''
@@ -151,6 +173,13 @@ else
   else
     printf 'beacon:     syncing=%s optimistic=%s el_offline=%s, peers %s\n' \
       "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers"
+  fi
+  if [ "$tunnel_on" = 1 ]; then
+    case "$tunnel_state" in
+      running)     printf 'tunnel:     connected, proxy running\n';;
+      unreachable) printf '%stunnel:     status endpoint not answering — is the tunnel service running? (docker compose ps)%s\n' "$red" "$reset";;
+      *)           printf '%stunnel:     proxy %s%s%s\n' "$red" "$tunnel_state" "${tunnel_err:+ — $tunnel_err}" "$reset";;
+    esac
   fi
   case "$ref_state" in
     reachable)

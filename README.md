@@ -87,6 +87,30 @@ internet:
 - JSON-RPC: `http://127.0.0.1:8545` (port: `EL_RPC_PORT` in `.env`)
 - Beacon API: `http://127.0.0.1:5052` (port: `CL_HTTP_PORT`)
 
+## Serving through a tunnel (optional)
+
+A node behind NAT can serve its JSON-RPC on a tunnel server. The tunnel
+server operator gives you three values; put them in `.env` and enable
+the profile:
+
+```bash
+COMPOSE_PROFILES=tunnel
+TUNNEL_SERVER_ADDR=<tunnel server host>
+TUNNEL_AUTH_TOKEN=<token>       # a secret — do not paste it anywhere
+TUNNEL_REMOTE_PORT=<your assigned port>
+```
+
+Then re-run `./setup.sh`. This starts one more container, the tunnel
+client ([frp](https://github.com/fatedier/frp), pinned and
+checksum-verified at build). It connects out to the tunnel server; your
+RPC then answers on that server at your assigned port. Who can reach
+that port is the server operator's choice — nothing on your own machine
+is opened to the internet, and the tunnel survives restarts on either
+side without your help.
+
+To stop tunneling, remove `COMPOSE_PROFILES=tunnel` from `.env` and run
+`docker compose --profile tunnel down tunnel`.
+
 ## Updating
 
 ```bash

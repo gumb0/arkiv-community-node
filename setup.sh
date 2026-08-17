@@ -46,6 +46,10 @@ env_network_dir="${NETWORK_DIR:-}"
 env_el_port="${EL_RPC_PORT:-}"
 env_cl_port="${CL_HTTP_PORT:-}"
 env_cl_image="${CL_IMAGE:-}"
+env_profiles="${COMPOSE_PROFILES:-}"
+env_tun_server="${TUNNEL_SERVER_ADDR:-}"
+env_tun_token="${TUNNEL_AUTH_TOKEN:-}"
+env_tun_port="${TUNNEL_REMOTE_PORT:-}"
 if [ -f .env ]; then
   set -a
   # shellcheck source=/dev/null # .env does not exist on CI and linter would complain
@@ -56,6 +60,14 @@ fi
 [ -n "$env_el_port" ]     && EL_RPC_PORT="$env_el_port"
 [ -n "$env_cl_port" ]     && CL_HTTP_PORT="$env_cl_port"
 [ -n "$env_cl_image" ]    && CL_IMAGE="$env_cl_image"
+[ -n "$env_profiles" ]    && COMPOSE_PROFILES="$env_profiles"
+[ -n "$env_tun_server" ]  && TUNNEL_SERVER_ADDR="$env_tun_server"
+[ -n "$env_tun_token" ]   && TUNNEL_AUTH_TOKEN="$env_tun_token"
+[ -n "$env_tun_port" ]    && TUNNEL_REMOTE_PORT="$env_tun_port"
+
+# The optional tunnel profile (COMPOSE_PROFILES=tunnel in .env).
+tunnel_on=0
+case ",${COMPOSE_PROFILES:-}," in *,tunnel,*) tunnel_on=1;; esac
 
 # The consensus client image is pinned.
 CL_IMAGE="${CL_IMAGE:-sigp/lighthouse:v8.2.1}"
@@ -69,6 +81,12 @@ command -v openssl >/dev/null || die "openssl is not installed (Debian/Ubuntu: a
 Set it in .env to the network artifacts directory you received (see .env.example)."
 [ -d "$NETWORK_DIR" ] || die "the network artifacts directory does not exist: $NETWORK_DIR
 Check NETWORK_DIR in .env."
+if [ "$tunnel_on" = 1 ]; then
+  if [ -z "${TUNNEL_SERVER_ADDR:-}" ] || [ -z "${TUNNEL_AUTH_TOKEN:-}" ] || [ -z "${TUNNEL_REMOTE_PORT:-}" ]; then
+    die "the tunnel profile is enabled, but TUNNEL_SERVER_ADDR, TUNNEL_AUTH_TOKEN
+or TUNNEL_REMOTE_PORT is not set (see .env.example)."
+  fi
+fi
 
 if [ "$REFRESH" = 1 ]; then
   command -v git >/dev/null || die "git is not installed (Debian/Ubuntu: apt install git)"
@@ -173,6 +191,14 @@ envsubst '${EL_IMAGE} ${CL_IMAGE} ${EL_ENODES} ${CL_ENRS}' \
   < templates/compose.override.yaml.tmpl > compose.override.yaml
 note "Rendered compose.override.yaml."
 
+if [ "$tunnel_on" = 1 ]; then
+  export TUNNEL_SERVER_ADDR TUNNEL_AUTH_TOKEN TUNNEL_REMOTE_PORT
+  # shellcheck disable=SC2016  # Same as above: the single quotes are the point.
+  envsubst '${TUNNEL_SERVER_ADDR} ${TUNNEL_AUTH_TOKEN} ${TUNNEL_REMOTE_PORT}' \
+    < templates/frpc.toml.tmpl > frpc.toml
+  note "Rendered frpc.toml."
+fi
+
 if [ "$RENDER_ONLY" = 1 ]; then
   note "Render-only run: nothing else written, nothing started."
   exit 0
@@ -222,7 +248,10 @@ fi
 # confirm the start before calling it a success.
 sleep 3
 down=0
-for service in execution consensus; do
+services="execution consensus"
+[ "$tunnel_on" = 1 ] && services="$services tunnel"
+# shellcheck disable=SC2086  # word splitting is the point
+for service in $services; do
   container=$(docker compose ps -q "$service")
   if [ -z "$container" ] || [ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null)" != true ]; then
     printf '%s is not running. Its last log lines:\n' "$service" >&2

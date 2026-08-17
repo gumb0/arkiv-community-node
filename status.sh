@@ -91,6 +91,28 @@ else
 fi
 cl_peers=$(curl -sf -m 5 "$CL/eth/v1/node/peer_count" | jfield connected || printf 'unknown')
 
+# ---- Restart counts ---------------------------------------------------------
+# A crash loop hides well: the container is freshly "Up" and the badges
+# recover between deaths — and a kernel OOM kill leaves no error in the
+# client's own log. The count plus a recent last start is the signature;
+# a nonzero count with a long-running container is old news, not warned
+# about. The daemon resets the count on reboot.
+container_life(){ # container_life <service> — "restart-count seconds-since-last-start"
+  local info count started
+  if info=$(docker inspect --format '{{.RestartCount}} {{.State.StartedAt}}' \
+              "$(docker compose ps -q "$1")" 2>/dev/null); then
+    read -r count started <<<"$info"
+    printf '%s %s' "$count" "$(( $(date +%s) - $(date -d "$started" +%s) ))"
+  else
+    printf '0 -1'
+  fi
+}
+read -r el_restarts el_started_ago <<<"$(container_life execution)"
+read -r cl_restarts cl_started_ago <<<"$(container_life consensus)"
+restarting=false
+{ [ "$el_restarts" != 0 ] && [ "$el_started_ago" -ge 0 ] && [ "$el_started_ago" -lt 3600 ]; } && restarting=true
+{ [ "$cl_restarts" != 0 ] && [ "$cl_started_ago" -ge 0 ] && [ "$cl_started_ago" -lt 3600 ]; } && restarting=true
+
 # ---- Tunnel client (only when the tunnel profile is enabled) ----------------
 tunnel_state=off tunnel_err=''
 if [ "$tunnel_on" = 1 ]; then
@@ -150,9 +172,10 @@ if [ "$tunnel_state" != off ] && [ "$tunnel_state" != running ]; then
 fi
 
 if [ "$JSON" = 1 ]; then
-  printf '{"ok":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"tunnel":"%s","reference":{"state":"%s","head":%s,"hashes_match":"%s"}}\n' \
+  printf '{"ok":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"restarts":{"execution":%s,"consensus":%s},"tunnel":"%s","reference":{"state":"%s","head":%s,"hashes_match":"%s"}}\n' \
     "$ok" "$chain_ok" "$local_head" "$local_hash" "$age" "$el_peers" \
     "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers" \
+    "$el_restarts" "$cl_restarts" \
     "$tunnel_state" "$ref_state" "${ref_head:-null}" "$hashes_match"
 else
   # Color only on a terminal, and never when NO_COLOR is set.
@@ -175,6 +198,11 @@ else
   else
     printf 'beacon:     syncing=%s optimistic=%s el_offline=%s, peers %s\n' \
       "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers"
+  fi
+  if [ "$restarting" = true ]; then
+    printf '%swarning:    container restarts — execution %s, consensus %s%s\n' "$yellow" "$el_restarts" "$cl_restarts" "$reset"
+    printf '            a crash loop can look like a slow sync; if the count grows and\n'
+    printf "            the logs show no error, check: dmesg | grep -i 'out of memory'\n"
   fi
   if [ "$tunnel_on" = 1 ]; then
     case "$tunnel_state" in

@@ -109,7 +109,8 @@ is opened to the internet, and the tunnel survives restarts on either
 side without your help.
 
 To stop tunneling, remove `COMPOSE_PROFILES=tunnel` from `.env` and run
-`docker compose --profile tunnel down tunnel`.
+`docker compose --profile tunnel down tunnel`. A "network is in use"
+warning is expected — the node's containers keep using the network.
 
 ## Updating
 

@@ -1,29 +1,28 @@
-# Template for frpc.toml — the tunnel client config for NAT'd providers.
-# Verified against frp v0.61.1. Not rendered by setup.sh yet: the values
-# come from agreeing terms with a load balancer, which is part of provider
-# onboarding (a later block). Until then, substitute by hand.
+# Template for frpc.toml — the tunnel client config, rendered by setup.sh
+# when the tunnel profile is enabled. Do not edit the rendered file.
 #
-# FRP_SERVER_ADDR — the LB's tunnel host
-# FRP_AUTH_TOKEN  — static shared token (interim; replaced by per-provider
-#                   signature auth when marketplace onboarding lands)
-# FRP_REMOTE_PORT — the port assigned to this provider on the LB host;
-#                   it exists on the LB's loopback only, never public
+# The values come from the tunnel server operator (see .env.example):
+# TUNNEL_SERVER_ADDR — the tunnel server host
+# TUNNEL_AUTH_TOKEN  — shared token for that server
+# TUNNEL_REMOTE_PORT — the port assigned to this node on the tunnel host
 
-serverAddr = "${FRP_SERVER_ADDR}"
+serverAddr = "${TUNNEL_SERVER_ADDR}"
 serverPort = 7000
-auth.token = "${FRP_AUTH_TOKEN}"
-# Keep retrying when the server is unreachable (e.g. LB restart) instead of
-# exiting; reconnects unattended in ~10 s once the server is back.
+auth.token = "${TUNNEL_AUTH_TOKEN}"
+# Keep retrying when the server is unreachable (e.g. it restarts)
+# instead of exiting; reconnects unattended in ~10 s.
 loginFailExit = false
 
-# Local status endpoint, for the status script: GET /api/status reports the
-# proxy state. Loopback only.
-webServer.addr = "127.0.0.1"
+# Status endpoint for status.sh: GET /api/status reports the proxy state.
+# Bound to all container interfaces; compose publishes it to host loopback.
+webServer.addr = "0.0.0.0"
 webServer.port = 7400
 
 [[proxies]]
 name = "node-rpc"
 type = "tcp"
-localIP = "127.0.0.1"
+# The execution container on the compose network. Always port 8545 inside
+# the network — EL_RPC_PORT only changes the host-side mapping.
+localIP = "execution"
 localPort = 8545
-remotePort = ${FRP_REMOTE_PORT}
+remotePort = ${TUNNEL_REMOTE_PORT}

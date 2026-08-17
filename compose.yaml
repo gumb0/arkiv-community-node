@@ -64,9 +64,10 @@ services:
       # window; a restart of a synced node goes green in minutes.
       start_period: 6h
 
-  # Optional: the tunnel client, for nodes behind NAT serving a load
-  # balancer. Off unless the tunnel profile is enabled (COMPOSE_PROFILES in
-  # .env). setup.sh renders frpc.toml from the TUNNEL_* values in .env.
+  # Optional: the tunnel client — serve the RPC from behind NAT via a
+  # tunnel server. Off unless the tunnel profile is enabled
+  # (COMPOSE_PROFILES in .env). setup.sh renders frpc.toml from the
+  # TUNNEL_* values in .env.
   tunnel:
     profiles: ["tunnel"]
     build: ./tunnel

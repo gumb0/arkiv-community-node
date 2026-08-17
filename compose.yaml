@@ -64,6 +64,26 @@ services:
       # window; a restart of a synced node goes green in minutes.
       start_period: 6h
 
+  # Optional: the tunnel client, for nodes behind NAT serving a load
+  # balancer. Off unless the tunnel profile is enabled (COMPOSE_PROFILES in
+  # .env). setup.sh renders frpc.toml from the TUNNEL_* values in .env.
+  tunnel:
+    profiles: ["tunnel"]
+    build: ./tunnel
+    depends_on:
+      - execution
+    volumes:
+      - ./frpc.toml:/etc/frp/frpc.toml:ro
+    ports:
+      # frpc's own status endpoint, for status.sh. Loopback only.
+      - "127.0.0.1:${TUNNEL_STATUS_PORT:-7400}:7400"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
 volumes:
   el-data:
   cl-data:

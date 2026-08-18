@@ -221,6 +221,18 @@ if [ ! -d artifacts ] || [ ! -f "$stored_artifacts_file" ] ||
   recreate=1
 fi
 
+# Same bind-mount blindness for the tunnel config: a changed render (e.g.
+# a new token in .env) must recreate the tunnel container.
+tunnel_recreate=0
+if [ "$tunnel_on" = 1 ]; then
+  frpc_sha=$(sha256sum frpc.toml | cut -d' ' -f1)
+  stored_frpc_file=.setup-state/frpc.sha256
+  if [ -f "$stored_frpc_file" ] && [ "$(cat "$stored_frpc_file")" != "$frpc_sha" ]; then
+    tunnel_recreate=1
+  fi
+  printf '%s\n' "$frpc_sha" > "$stored_frpc_file"
+fi
+
 # Values the status script needs.
 {
   printf 'OFFICIAL_RPC=https://rpc.%s.db-chain.%s\n' "$NET_NAME" "$BASE_DOMAIN"
@@ -242,6 +254,9 @@ if [ "$recreate" = 1 ]; then
   docker compose up -d --force-recreate
 else
   docker compose up -d
+  if [ "$tunnel_recreate" = 1 ]; then
+    docker compose up -d --force-recreate tunnel
+  fi
 fi
 
 # A container that refuses its arguments dies within a second or two —

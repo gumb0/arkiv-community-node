@@ -167,6 +167,9 @@ ok=true
 [ "$hashes_match" = false ] && ok=false
 [ "$b_syncing" = unknown ] && ok=false      # the beacon node is not answering
 [ "$b_el_offline" = true ] && ok=false      # the two clients are not talking
+[ "$cl_peers" = 0 ] && ok=false             # no peers: new blocks cannot arrive
+                                            # ("unknown" is not a fault — only a
+                                            # confirmed zero is)
 if [ "$tunnel_state" != off ] && [ "$tunnel_state" != running ]; then
   ok=false
 fi
@@ -198,6 +201,12 @@ else
   else
     printf 'beacon:     syncing=%s optimistic=%s el_offline=%s, peers %s\n' \
       "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers"
+    if [ "$cl_peers" = 0 ]; then
+      printf '%swarning:    the beacon has no peers — new blocks cannot arrive%s\n' "$red" "$reset"
+      printf '            try: docker compose restart consensus\n'
+      printf '            still 0 after a few minutes? the network endpoints may have\n'
+      printf '            moved: ./setup.sh --refresh\n'
+    fi
   fi
   if [ "$restarting" = true ]; then
     printf '%swarning:    container restarts — execution %s, consensus %s%s\n' "$yellow" "$el_restarts" "$cl_restarts" "$reset"

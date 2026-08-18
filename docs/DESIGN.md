@@ -131,7 +131,8 @@ RPC. Its design rules:
 - **A reference problem is never this node's fault.** Unreachable, rate
   limited, or answering strangely — the script reports "local view only"
   and the verdict is unaffected. Only local faults (wrong chain, a
-  confirmed hash mismatch, a client not answering) fail it.
+  confirmed hash mismatch, a client not answering, a beacon with zero
+  peers — new blocks cannot arrive) fail it.
 - **A missing comparison is "unknown", never a mismatch.** Hash mismatch is
   the scariest thing the script can say — it must mean exactly that, with
   both hashes printed as evidence.

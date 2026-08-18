@@ -186,63 +186,71 @@ else
   if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     red=$'\e[31m' green=$'\e[32m' yellow=$'\e[33m' reset=$'\e[0m'
   fi
-  printf 'chain id:   %s' "$(hex2dec "$chain_hex")"
+  # State glyphs in front of every judged line. Color alone does not
+  # survive NO_COLOR, a pipe, or a colorblind reader; the glyph does.
+  # Lines that only report (head, peers) and guidance under a judged line
+  # keep the column blank. ASCII where the locale is not UTF-8.
+  case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+    *[Uu][Tt][Ff]*) g_ok='✓' g_warn='!' g_fail='✗';;
+    *)              g_ok='+' g_warn='!' g_fail='x';;
+  esac
+
   if [ "$chain_ok" = true ]; then
-    printf ' (matches the network artifacts)\n'
+    printf '%s chain id:   %s (matches the network artifacts)\n' "$g_ok" "$(hex2dec "$chain_hex")"
   else
-    printf ' — %sEXPECTED %s: wrong network!%s\n' "$red" "$CHAIN_ID" "$reset"
-    printf '            check NETWORK_DIR in .env; to switch networks:\n'
-    printf '            docker compose down -v && ./setup.sh\n'
+    printf '%s%s chain id:   %s — EXPECTED %s: wrong network!%s\n' "$red" "$g_fail" "$(hex2dec "$chain_hex")" "$CHAIN_ID" "$reset"
+    printf '              check NETWORK_DIR in .env; to switch networks:\n'
+    printf '              docker compose down -v && ./setup.sh\n'
   fi
-  printf 'local head: #%s %s (age %ss)\n' "$local_head" "$local_hash" "$age"
-  printf 'execution:  peers %s\n' "$el_peers"
+  printf '  local head: #%s %s (age %ss)\n' "$local_head" "$local_hash" "$age"
+  printf '  execution:  peers %s\n' "$el_peers"
   if [ "$b_syncing" = unknown ]; then
-    printf '%sbeacon:     not answering at %s — is it running? (docker compose ps)%s\n' "$red" "$CL" "$reset"
+    printf '%s%s beacon:     not answering at %s — is it running? (docker compose ps)%s\n' "$red" "$g_fail" "$CL" "$reset"
+  elif [ "$cl_peers" = 0 ]; then
+    printf '%s%s beacon:     syncing=%s optimistic=%s el_offline=%s, peers 0%s\n' \
+      "$red" "$g_fail" "$b_syncing" "$b_optimistic" "$b_el_offline" "$reset"
+    printf '  warning:    the beacon has no peers — new blocks cannot arrive\n'
+    printf '              try: docker compose restart consensus\n'
+    printf '              still 0 after a few minutes? the network endpoints may have\n'
+    printf '              moved: ./setup.sh --refresh\n'
   else
-    printf 'beacon:     syncing=%s optimistic=%s el_offline=%s, peers %s\n' \
-      "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers"
-    if [ "$cl_peers" = 0 ]; then
-      printf '%swarning:    the beacon has no peers — new blocks cannot arrive%s\n' "$red" "$reset"
-      printf '            try: docker compose restart consensus\n'
-      printf '            still 0 after a few minutes? the network endpoints may have\n'
-      printf '            moved: ./setup.sh --refresh\n'
-    fi
+    printf '%s beacon:     syncing=%s optimistic=%s el_offline=%s, peers %s\n' \
+      "$g_ok" "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers"
   fi
   if [ "$restarting" = true ]; then
-    printf '%swarning:    container restarts — execution %s, consensus %s%s\n' "$yellow" "$el_restarts" "$cl_restarts" "$reset"
-    printf '            a crash loop can look like a slow sync; if the count grows and\n'
-    printf "            the logs show no error, check: dmesg | grep -i 'out of memory'\n"
+    printf '%s%s warning:    container restarts — execution %s, consensus %s%s\n' "$yellow" "$g_warn" "$el_restarts" "$cl_restarts" "$reset"
+    printf '              a crash loop can look like a slow sync; if the count grows and\n'
+    printf "              the logs show no error, check: dmesg | grep -i 'out of memory'\n"
   fi
   if [ "$tunnel_on" = 1 ]; then
     case "$tunnel_state" in
-      running)      printf 'tunnel:     connected, proxy running\n';;
-      disconnected) printf '%stunnel:     not connected to the tunnel server%s\n' "$red" "$reset"
-                    printf '            the client log has the reason: docker compose logs --tail 5 tunnel\n';;
-      unreachable)  printf '%stunnel:     status endpoint not answering — is the tunnel service running? (docker compose ps)%s\n' "$red" "$reset";;
-      *)            printf '%stunnel:     proxy %s%s%s\n' "$red" "$tunnel_state" "${tunnel_err:+ — $tunnel_err}" "$reset";;
+      running)      printf '%s tunnel:     connected, proxy running\n' "$g_ok";;
+      disconnected) printf '%s%s tunnel:     not connected to the tunnel server%s\n' "$red" "$g_fail" "$reset"
+                    printf '              the client log has the reason: docker compose logs --tail 5 tunnel\n';;
+      unreachable)  printf '%s%s tunnel:     status endpoint not answering — is the tunnel service running? (docker compose ps)%s\n' "$red" "$g_fail" "$reset";;
+      *)            printf '%s%s tunnel:     proxy %s%s%s\n' "$red" "$g_fail" "$tunnel_state" "${tunnel_err:+ — $tunnel_err}" "$reset";;
     esac
   fi
   case "$ref_state" in
     reachable)
-      printf 'reference:  head #%s — ' "$ref_head"
       case "$hashes_match" in
-        true)    printf 'hashes match at #%s\n' "$min";;
-        false)   printf '%sHASH MISMATCH at #%s — local %s vs reference %s%s\n' "$red" "$min" "$local_min_hash" "$ref_hash" "$reset"
-                 printf '            a brief fork at the head can cause this — re-run to check\n'
-                 printf '            if it persists, this node followed a different chain and must\n'
-                 printf '            resync: docker compose down -v && ./setup.sh --refresh\n';;
-        unknown) printf '%shash comparison unavailable (request failed)%s\n' "$yellow" "$reset";;
+        true)    printf '%s reference:  head #%s — hashes match at #%s\n' "$g_ok" "$ref_head" "$min";;
+        false)   printf '%s%s reference:  head #%s — HASH MISMATCH at #%s — local %s vs reference %s%s\n' "$red" "$g_fail" "$ref_head" "$min" "$local_min_hash" "$ref_hash" "$reset"
+                 printf '              a brief fork at the head can cause this — re-run to check\n'
+                 printf '              if it persists, this node followed a different chain and must\n'
+                 printf '              resync: docker compose down -v && ./setup.sh --refresh\n';;
+        unknown) printf '%s%s reference:  head #%s — hash comparison unavailable (request failed)%s\n' "$yellow" "$g_warn" "$ref_head" "$reset";;
       esac
       if [ "$hashes_match" = true ]; then
         if [ "$ref_head" -gt "$local_head" ]; then
-          printf '%snote:       behind the reference by %s blocks%s\n' "$yellow" "$(( ref_head - local_head ))" "$reset"
+          printf '%s%s note:       behind the reference by %s blocks%s\n' "$yellow" "$g_warn" "$(( ref_head - local_head ))" "$reset"
         elif [ "$age" -gt 60 ]; then
-          printf '%snote:       level with the reference, but the chain is quiet for %ss%s\n' "$yellow" "$age" "$reset"
+          printf '%s%s note:       level with the reference, but the chain is quiet for %ss%s\n' "$yellow" "$g_warn" "$age" "$reset"
         fi
       fi;;
     unreachable)
-      printf '%sreference:  unreachable — local view only (not a local problem)%s\n' "$yellow" "$reset";;
+      printf '%s%s reference:  unreachable — local view only (not a local problem)%s\n' "$yellow" "$g_warn" "$reset";;
   esac
-  [ "$ok" = true ] && printf '%soverall:    OK%s\n' "$green" "$reset" || printf '%soverall:    NEEDS ATTENTION%s\n' "$red" "$reset"
+  [ "$ok" = true ] && printf '%s%s overall:    OK%s\n' "$green" "$g_ok" "$reset" || printf '%s%s overall:    NEEDS ATTENTION%s\n' "$red" "$g_fail" "$reset"
 fi
 [ "$ok" = true ]

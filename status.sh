@@ -243,6 +243,6 @@ else
     unreachable)
       printf '%sreference:  unreachable — local view only (not a local problem)%s\n' "$yellow" "$reset";;
   esac
-  [ "$ok" = true ] && printf 'overall:    %sOK%s\n' "$green" "$reset" || printf 'overall:    %sNEEDS ATTENTION%s\n' "$red" "$reset"
+  [ "$ok" = true ] && printf '%soverall:    OK%s\n' "$green" "$reset" || printf '%soverall:    NEEDS ATTENTION%s\n' "$red" "$reset"
 fi
 [ "$ok" = true ]

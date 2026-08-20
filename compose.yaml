@@ -94,6 +94,26 @@ services:
       # worth showing.
       start_period: 30s
 
+  # Optional: on-box monitoring (Uptime Kuma) — alerts the operator when a
+  # badge goes bad, instead of waiting to be looked at. Off unless the
+  # monitor profile is enabled (COMPOSE_PROFILES in .env). Suggested
+  # monitors and the alerting setup: README.
+  monitor:
+    profiles: ["monitor"]
+    image: louislam/uptime-kuma:2.4.0@sha256:91e963bfda569ba115206e843febb446f473ab525add4e08b2b9e3beffa16985
+    volumes:
+      - kuma-data:/app/data
+    ports:
+      # The web UI, loopback only — reach it over SSH port forwarding.
+      - "127.0.0.1:${MONITOR_UI_PORT:-3001}:3001"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
 volumes:
   el-data:
   cl-data:
+  kuma-data:

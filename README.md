@@ -112,6 +112,52 @@ To stop tunneling, remove `COMPOSE_PROFILES=tunnel` from `.env` and run
 `docker compose --profile tunnel down tunnel`. A "network is in use"
 warning is expected — the node's containers keep using the network.
 
+## Getting alerted (optional)
+
+The health badges signal problems, but somebody has to look at them. The
+monitor profile adds [Uptime Kuma](https://github.com/louislam/uptime-kuma)
+to the stack: it checks the node from inside and sends you a message
+(Telegram, email, and many others) when something goes bad.
+
+Enable it in `.env` — add `monitor` to `COMPOSE_PROFILES`
+(comma-separated if the tunnel is on too):
+
+```bash
+COMPOSE_PROFILES=monitor
+```
+
+Then re-run `./setup.sh`. The web UI answers on this host only — open
+`http://localhost:3001` in a browser on the node machine, or, for a
+headless box, forward the port first:
+
+```bash
+ssh -L 3001:127.0.0.1:3001 <node machine>   # then open http://localhost:3001
+```
+
+On the first visit, pick **SQLite** when asked for a database (it lives
+in the container's volume; nothing extra to run) and create the admin
+account.
+
+Add these monitors (type "HTTP(s) - Keyword", interval 60s):
+
+| What it watches | URL | Keyword | Settings |
+|---|---|---|---|
+| RPC serving | `http://execution:8545` | `"result"` | Method POST, body `{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}` |
+| Node current | `http://consensus:5052/eth/v1/node/syncing` | `"is_syncing":false` | — |
+| Tunnel connected (only with the tunnel profile) | `http://tunnel:7400/api/status` | `running` | — |
+
+Notifications are set up in the UI (Settings → Notifications) and
+attached to each monitor.
+
+Two things to know:
+
+- Monitor only these addresses. **Never add a monitor on the official
+  RPC** — it is rate limited, and a monitoring cadence eats that budget.
+- Kuma runs on the node machine, so it cannot tell you when the whole
+  machine goes down — only when the node misbehaves while the machine is
+  up. During a first sync, "Node current" stays red until the sync
+  finishes, same as the health badge.
+
 ## Updating
 
 ```bash

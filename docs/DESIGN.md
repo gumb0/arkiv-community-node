@@ -172,7 +172,31 @@ Design choices:
   client's own local status endpoint whether the proxy is running, and
   `status.sh` reports the same distinction.
 
-## 7. Testing
+## 7. Monitoring (optional)
+
+The badges signal, `status.sh` answers on demand — but both wait to be
+looked at. The monitor profile adds the missing piece: an on-box
+[Uptime Kuma](https://github.com/louislam/uptime-kuma) that alerts the
+operator when a badge-level fact goes bad. Notifications go outbound
+(Telegram, email, …), so alerting works unchanged for a node behind NAT.
+Another opt-in overlay, off by default, enabled by one `.env` line.
+
+Design choices:
+
+- **It watches the same local endpoints the badges do** — from inside the
+  compose network, so the suggested monitors cannot accidentally point at
+  the metered official RPC; the README states that rule explicitly.
+- **The UI answers on loopback only** — a browser on the node machine
+  itself, or SSH port forwarding from a headless box. There is no setting
+  to bind it wider: the UI holds an admin account, and forwarding covers
+  the headless case safely. Monitor setup stays manual in the UI — a
+  provisioning mechanism for a five-minute one-time task would be more
+  machinery than the task.
+- **It observes, it never acts.** The restart decision stays with the
+  operator ([health model](#4-health-model)); a watchdog that acts is a
+  separate future item, deliberately downstream of alerting.
+
+## 8. Testing
 
 `tests/ci.sh` holds the entire test suite in one script, runnable locally
 and run identically by CI: shellcheck over every script, a render through
@@ -183,9 +207,6 @@ the output.
 
 ## 8. Possible future improvements
 
-- **Monitoring overlay**: an optional uptime probe and metrics, as an
-  opt-in addition — in line with the "anything optional is an overlay"
-  rule.
 - **Restart watchdog**: an optional watchdog that restarts
   unhealthy-but-alive containers — also an opt-in overlay, default off:
   the base stack stays signals-only ([health model](#4-health-model)).

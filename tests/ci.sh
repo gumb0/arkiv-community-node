@@ -26,7 +26,7 @@ NETWORK_DIR=tests/fixture-network COMPOSE_PROFILES=tunnel \
 grep -q 'serverAddr = "203.0.113.7"' frpc.toml
 grep -q 'remotePort = 18545' frpc.toml
 
-note "the stack validates with the tunnel profile enabled"
-COMPOSE_PROFILES=tunnel docker compose config -q
+note "the stack validates with every profile enabled"
+COMPOSE_PROFILES=tunnel,monitor docker compose config -q
 
 note "all green"

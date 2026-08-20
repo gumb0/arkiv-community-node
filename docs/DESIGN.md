@@ -92,6 +92,8 @@ Three change detectors decide what a setup run does:
 
 An unchanged re-run passes through all three without touching anything —
 `setup.sh` is convergent, and "re-run setup" is always a safe instruction.
+Profiles converge the same way: a service whose profile was turned off is
+stopped by the next setup run — compose alone would leave it running.
 
 ## 4. Health model
 

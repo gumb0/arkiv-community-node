@@ -108,9 +108,9 @@ that port is the server operator's choice — nothing on your own machine
 is opened to the internet, and the tunnel survives restarts on either
 side without your help.
 
-To stop tunneling, remove `COMPOSE_PROFILES=tunnel` from `.env` and run
-`docker compose --profile tunnel down tunnel`. A "network is in use"
-warning is expected — the node's containers keep using the network.
+To stop tunneling, remove `tunnel` from `COMPOSE_PROFILES` in `.env` and
+re-run `./setup.sh` — it stops the tunnel container. A "network is in
+use" warning is expected — the node's containers keep using the network.
 
 ## Getting alerted (optional)
 
@@ -157,6 +157,10 @@ Two things to know:
   machine goes down — only when the node misbehaves while the machine is
   up. During a first sync, "Node current" stays red until the sync
   finishes, same as the health badge.
+
+To turn monitoring off, remove `monitor` from `COMPOSE_PROFILES` and
+re-run `./setup.sh`. The monitor's history and settings stay in its
+volume — turning it back on later brings them back.
 
 ## Updating
 

@@ -266,6 +266,18 @@ else
   fi
 fi
 
+# A disabled profile makes its service invisible to compose: `up` neither
+# starts nor stops it. So when the operator turns a profile off, its
+# container from an earlier run keeps going — stop it here.
+for optional in tunnel monitor; do
+  case ",${COMPOSE_PROFILES:-}," in *,"$optional",*) continue;; esac
+  leftover=$(docker compose --profile "$optional" ps -q "$optional" 2>/dev/null || true)
+  if [ -n "$leftover" ]; then
+    note "The $optional profile is disabled but its container is running — stopping it."
+    docker compose --profile "$optional" down "$optional"
+  fi
+done
+
 # A container that refuses its arguments dies within a second or two —
 # confirm the start before calling it a success.
 sleep 3

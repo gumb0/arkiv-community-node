@@ -250,6 +250,12 @@ fi
 
 docker compose config -q || die "the rendered stack does not validate"
 docker compose pull
+if [ "$tunnel_on" = 1 ]; then
+  # `up` builds the tunnel image only when it is missing — it never rebuilds
+  # because the Dockerfile changed (e.g. an frp version bump arriving with a
+  # repo update). Build explicitly; with nothing changed this is a cached no-op.
+  docker compose build tunnel
+fi
 if [ "$recreate" = 1 ]; then
   docker compose up -d --force-recreate
 else

@@ -65,9 +65,10 @@ fi
 [ -n "$env_tun_token" ]   && TUNNEL_AUTH_TOKEN="$env_tun_token"
 [ -n "$env_tun_port" ]    && TUNNEL_REMOTE_PORT="$env_tun_port"
 
-# The optional tunnel profile (COMPOSE_PROFILES=tunnel in .env).
-tunnel_on=0
+# The optional profiles (COMPOSE_PROFILES in .env, comma-separated).
+tunnel_on=0 monitor_on=0
 case ",${COMPOSE_PROFILES:-}," in *,tunnel,*) tunnel_on=1;; esac
+case ",${COMPOSE_PROFILES:-}," in *,monitor,*) monitor_on=1;; esac
 
 # The consensus client image is pinned.
 CL_IMAGE="${CL_IMAGE:-sigp/lighthouse:v8.2.1}"
@@ -265,12 +266,25 @@ else
   fi
 fi
 
+# A disabled profile makes its service invisible to compose: `up` neither
+# starts nor stops it. So when the operator turns a profile off, its
+# container from an earlier run keeps going — stop it here.
+for optional in tunnel monitor; do
+  case ",${COMPOSE_PROFILES:-}," in *,"$optional",*) continue;; esac
+  leftover=$(docker compose --profile "$optional" ps -q "$optional" 2>/dev/null || true)
+  if [ -n "$leftover" ]; then
+    note "The $optional profile is disabled but its container is running — stopping it."
+    docker compose --profile "$optional" down "$optional"
+  fi
+done
+
 # A container that refuses its arguments dies within a second or two —
 # confirm the start before calling it a success.
 sleep 3
 down=0
 services="execution consensus"
 [ "$tunnel_on" = 1 ] && services="$services tunnel"
+[ "$monitor_on" = 1 ] && services="$services monitor"
 # shellcheck disable=SC2086  # word splitting is the point
 for service in $services; do
   container=$(docker compose ps -q "$service")

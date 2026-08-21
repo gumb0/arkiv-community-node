@@ -212,6 +212,11 @@ the output.
 - **Restart watchdog**: an optional watchdog that restarts
   unhealthy-but-alive containers — also an opt-in overlay, default off:
   the base stack stays signals-only ([health model](#4-health-model)).
+- **Metrics profile**: Prometheus + Grafana as a further opt-in tier, for
+  operators who want trends and debugging depth beyond
+  [alerting](#7-monitoring-optional). Mostly assembly: both clients
+  already expose Prometheus endpoints, and both projects publish Grafana
+  dashboards.
 - **Data-location knob**: chain data lives in Docker named volumes;
   putting it on another disk today means moving Docker's whole data root.
   A knob for the data location would be friendlier.

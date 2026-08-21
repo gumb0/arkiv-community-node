@@ -162,6 +162,35 @@ To turn monitoring off, remove `monitor` from `COMPOSE_PROFILES` and
 re-run `./setup.sh`. The monitor's history and settings stay in its
 volume — turning it back on later brings them back.
 
+## Automatic restarts (optional)
+
+Normally nothing restarts an unhealthy-but-alive container — the badges
+are signals for you. The watchdog profile changes that: a container that
+stays `unhealthy` for 5 minutes is restarted, at most once per hour.
+`starting` never triggers it, so a first sync is never touched. It
+watches the execution and consensus containers only.
+
+**Read this before enabling.** The watchdog needs the docker socket, and
+holding the socket means full control over docker — and therefore over
+this machine. Our watchdog only reads health and restarts containers
+(the whole program is `watchdog/watchdog.sh`, about 50 lines — read it),
+but you are granting the capability, not just the behavior. That is why
+it is off by default. Enable only on a machine that is dedicated to this
+node.
+
+```bash
+COMPOSE_PROFILES=watchdog
+```
+
+Then re-run `./setup.sh`. Every restart it performs is in its log:
+
+```bash
+docker compose logs watchdog
+```
+
+To turn it off, remove `watchdog` from `COMPOSE_PROFILES` and re-run
+`./setup.sh`.
+
 ## Updating
 
 ```bash

@@ -66,9 +66,10 @@ fi
 [ -n "$env_tun_port" ]    && TUNNEL_REMOTE_PORT="$env_tun_port"
 
 # The optional profiles (COMPOSE_PROFILES in .env, comma-separated).
-tunnel_on=0 monitor_on=0
+tunnel_on=0 monitor_on=0 watchdog_on=0
 case ",${COMPOSE_PROFILES:-}," in *,tunnel,*) tunnel_on=1;; esac
 case ",${COMPOSE_PROFILES:-}," in *,monitor,*) monitor_on=1;; esac
+case ",${COMPOSE_PROFILES:-}," in *,watchdog,*) watchdog_on=1;; esac
 
 # The consensus client image is pinned.
 CL_IMAGE="${CL_IMAGE:-sigp/lighthouse:v8.2.1}"
@@ -251,12 +252,11 @@ fi
 
 docker compose config -q || die "the rendered stack does not validate"
 docker compose pull
-if [ "$tunnel_on" = 1 ]; then
-  # `up` builds the tunnel image only when it is missing — it never rebuilds
-  # because the Dockerfile changed (e.g. an frp version bump arriving with a
-  # repo update). Build explicitly; with nothing changed this is a cached no-op.
-  docker compose build tunnel
-fi
+# `up` builds a missing image but never rebuilds because a Dockerfile
+# changed (e.g. an frp version bump arriving with a repo update). Build
+# explicitly: this covers the build services of every active profile,
+# and is a cached no-op when nothing changed.
+docker compose build
 if [ "$recreate" = 1 ]; then
   docker compose up -d --force-recreate
 else
@@ -269,7 +269,7 @@ fi
 # A disabled profile makes its service invisible to compose: `up` neither
 # starts nor stops it. So when the operator turns a profile off, its
 # container from an earlier run keeps going — stop it here.
-for optional in tunnel monitor; do
+for optional in tunnel monitor watchdog; do
   case ",${COMPOSE_PROFILES:-}," in *,"$optional",*) continue;; esac
   leftover=$(docker compose --profile "$optional" ps -q "$optional" 2>/dev/null || true)
   if [ -n "$leftover" ]; then
@@ -285,6 +285,7 @@ down=0
 services="execution consensus"
 [ "$tunnel_on" = 1 ] && services="$services tunnel"
 [ "$monitor_on" = 1 ] && services="$services monitor"
+[ "$watchdog_on" = 1 ] && services="$services watchdog"
 # shellcheck disable=SC2086  # word splitting is the point
 for service in $services; do
   container=$(docker compose ps -q "$service")

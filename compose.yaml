@@ -113,6 +113,25 @@ services:
         max-size: "50m"
         max-file: "5"
 
+  # Optional: restart a container that stays unhealthy (see README — this
+  # one holds the docker socket, which is why it is off by default). Off
+  # unless the watchdog profile is enabled (COMPOSE_PROFILES in .env).
+  watchdog:
+    profiles: ["watchdog"]
+    build: ./watchdog
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHDOG_POLL_SECONDS: ${WATCHDOG_POLL_SECONDS:-60}
+      WATCHDOG_UNHEALTHY_POLLS: ${WATCHDOG_UNHEALTHY_POLLS:-5}
+      WATCHDOG_COOLDOWN_SECONDS: ${WATCHDOG_COOLDOWN_SECONDS:-3600}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
 volumes:
   el-data:
   cl-data:

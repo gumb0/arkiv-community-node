@@ -27,6 +27,6 @@ grep -q 'serverAddr = "203.0.113.7"' frpc.toml
 grep -q 'remotePort = 18545' frpc.toml
 
 note "the stack validates with every profile enabled"
-COMPOSE_PROFILES=tunnel,monitor docker compose config -q
+COMPOSE_PROFILES=tunnel,monitor,watchdog docker compose config -q
 
 note "all green"

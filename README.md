@@ -143,7 +143,7 @@ Add these monitors (type "HTTP(s) - Keyword", interval 60s):
 | What it watches | URL | Keyword | Settings |
 |---|---|---|---|
 | RPC serving | `http://execution:8545` | `"result"` | Method POST, body `{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}` |
-| Node current | `http://consensus:5052/eth/v1/node/syncing` | `"is_syncing":false` | — |
+| Node current | `http://consensus:5052/eth/v1/node/syncing` | `"is_syncing":false,"is_optimistic":false,"el_offline":false` | — |
 | Tunnel connected (only with the tunnel profile) | `http://tunnel:7400/api/status` | `running` | — |
 
 Notifications are set up in the UI (Settings → Notifications) and

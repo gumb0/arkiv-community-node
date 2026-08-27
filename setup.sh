@@ -45,7 +45,6 @@ done
 env_network_dir="${NETWORK_DIR:-}"
 env_el_port="${EL_RPC_PORT:-}"
 env_cl_port="${CL_HTTP_PORT:-}"
-env_cl_image="${CL_IMAGE:-}"
 env_profiles="${COMPOSE_PROFILES:-}"
 env_tun_server="${TUNNEL_SERVER_ADDR:-}"
 env_tun_token="${TUNNEL_AUTH_TOKEN:-}"
@@ -59,7 +58,6 @@ fi
 [ -n "$env_network_dir" ] && NETWORK_DIR="$env_network_dir"
 [ -n "$env_el_port" ]     && EL_RPC_PORT="$env_el_port"
 [ -n "$env_cl_port" ]     && CL_HTTP_PORT="$env_cl_port"
-[ -n "$env_cl_image" ]    && CL_IMAGE="$env_cl_image"
 [ -n "$env_profiles" ]    && COMPOSE_PROFILES="$env_profiles"
 [ -n "$env_tun_server" ]  && TUNNEL_SERVER_ADDR="$env_tun_server"
 [ -n "$env_tun_token" ]   && TUNNEL_AUTH_TOKEN="$env_tun_token"
@@ -69,9 +67,6 @@ fi
 tunnel_on=0 monitor_on=0
 case ",${COMPOSE_PROFILES:-}," in *,tunnel,*) tunnel_on=1;; esac
 case ",${COMPOSE_PROFILES:-}," in *,monitor,*) monitor_on=1;; esac
-
-# The consensus client image is pinned.
-CL_IMAGE="${CL_IMAGE:-sigp/lighthouse:v8.2.1}"
 
 # Prerequisites, checked before touching anything.
 command -v docker >/dev/null || die "docker is not installed — see https://docs.docker.com/engine/install/"
@@ -171,9 +166,11 @@ CL_ENRS=$(p2p_list cl_boot_enrs)
 : "${EL_ENODES:?p2p.yaml carries no el_enodes — try --refresh}"
 : "${CL_ENRS:?p2p.yaml carries no cl_boot_enrs — try --refresh}"
 
-# The execution image pin lives in the upstream script.
+# Both image pins live in the upstream script.
 EL_IMAGE=$(grep -m1 '^EL_IMAGE=' "$upstream_script" | cut -d= -f2- || true)
 : "${EL_IMAGE:?could not extract EL_IMAGE from $upstream_script}"
+CL_IMAGE=$(grep -m1 '^CL_IMAGE=' "$upstream_script" | cut -d= -f2- || true)
+: "${CL_IMAGE:?could not extract CL_IMAGE from $upstream_script}"
 
 # Values the status script needs, derived from the network metadata.
 meta_value(){ grep -m1 "^$1:" "$NETWORK_DIR/metadata.yaml" | cut -d: -f2- | tr -d '[:space:]' || true; }

@@ -16,6 +16,7 @@ docker compose config -q
 
 note "rendered output carries the fixture values"
 grep -q 'fixture-el:ci' compose.override.yaml
+grep -q 'fixture-cl:ci' compose.override.yaml
 grep -q '192.0.2.10:30000,enode://' compose.override.yaml
 grep -q 'enr:-fixture-aaaa,enr:-fixture-bbbb' compose.override.yaml
 

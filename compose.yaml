@@ -12,8 +12,7 @@ services:
       - ./healthchecks:/hc:ro
       - el-data:/data
     ports:
-      # Loopback only: the RPC is for this host (and later the tunnel
-      # client), never for the internet.
+      # Loopback only: the RPC is for this host, never for the internet.
       - "127.0.0.1:${EL_RPC_PORT:-8545}:8545"
     restart: unless-stopped
     # A maximum, not a delay: docker continues as soon as the client exits.

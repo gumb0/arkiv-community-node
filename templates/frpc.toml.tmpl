@@ -19,7 +19,9 @@ webServer.addr = "0.0.0.0"
 webServer.port = 7400
 
 [[proxies]]
-name = "node-rpc"
+# Proxy names are unique per tunnel server, so the name carries the
+# assigned port — two nodes with a fixed name would reject each other.
+name = "node-rpc-${TUNNEL_REMOTE_PORT}"
 type = "tcp"
 # The execution container on the compose network. Always port 8545 inside
 # the network — EL_RPC_PORT only changes the host-side mapping.

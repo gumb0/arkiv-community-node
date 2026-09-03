@@ -59,9 +59,10 @@ services:
       timeout: 5s
       retries: 3
       # Green only when the whole node is current (see cl.sh). A first sync
-      # from genesis takes hours: this badge stays at "starting" for that
-      # window; a restart of a synced node goes green in minutes.
-      start_period: 6h
+      # from genesis can take a large part of a day: the badge stays at
+      # "starting" for that window instead of turning falsely unhealthy;
+      # a restart of a synced node goes green in minutes.
+      start_period: 24h
 
   # Optional: the tunnel client — serve the RPC from behind NAT via a
   # tunnel server. Off unless the tunnel profile is enabled

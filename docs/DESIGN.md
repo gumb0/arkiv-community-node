@@ -57,6 +57,7 @@ running its infrastructure. The audience sets the constraints:
 | `status.sh` | Chain-level truth on demand, including a comparison against the official RPC; operator-invoked, separate from the health badges |
 | `healthchecks/*.sh` | The badge predicates, running inside the containers on local data only ([health model](#4-health-model)) |
 | `tunnel/`, `frpc.toml` (generated) | The optional tunnel client: a locally built image and its rendered config ([the tunnel](#6-the-tunnel-optional)) |
+| `watchdog/` | The optional restart watchdog: a locally built image around one short script ([the watchdog](#8-the-watchdog-optional)) |
 
 ## 3. Configuration model
 
@@ -115,10 +116,12 @@ The node is OK when both are green. Design rules behind the model:
   operator's endpoint being reachable — a reference outage must not turn
   every community node red at once. Chain-level truth against the reference
   belongs to `status.sh`, invoked by a human.
-- **Badges signal, they do not act.** Nothing auto-restarts an
-  unhealthy-but-alive container: an automatic restarter can destroy a slow
-  recovery, and it would need privileges this distribution has no business
-  asking for. The restart decision is the operator's.
+- **Badges signal, they do not act.** Nothing in the base stack
+  auto-restarts an unhealthy-but-alive container: an automatic restarter
+  can destroy a slow recovery, and it would need privileges this
+  distribution has no business asking for by default. The restart
+  decision is the operator's — including the decision to delegate it to
+  the opt-in [watchdog](#8-the-watchdog-optional).
 - The checks (`healthchecks/el.sh` for execution, `healthchecks/cl.sh` for
   consensus) are pure bash over `/dev/tcp` inside the containers — the
   images ship no HTTP client, and mounting one in would mean maintaining a
@@ -195,10 +198,37 @@ Design choices:
   provisioning mechanism for a five-minute one-time task would be more
   machinery than the task.
 - **It observes, it never acts.** The restart decision stays with the
-  operator ([health model](#4-health-model)); a watchdog that acts is a
-  separate future item, deliberately downstream of alerting.
+  operator ([health model](#4-health-model)); acting is the separate,
+  also-optional [watchdog](#8-the-watchdog-optional)'s job.
 
-## 8. Testing
+## 8. The watchdog (optional)
+
+The one overlay that acts instead of observing: a container that stays
+`unhealthy` for N consecutive polls is restarted, at most once per
+cool-down. Another opt-in profile, off by default.
+
+Design choices:
+
+- **Docker's health status is the entire input.** The badges' claims
+  ([health model](#4-health-model)) are what it acts on; it knows nothing
+  about chains, sync, or peers. `starting` never triggers it, so a first
+  sync inside the start period is untouchable by construction; the streak
+  and the cool-down bound the case beyond it — a first sync outlasting
+  the start period costs a few harmless restarts, never a thrash loop.
+- **The watched set is fixed: execution and consensus.** The tunnel
+  client reconnects on its own and the monitor manages itself — a
+  restart cures neither.
+- **The socket grant is a capability, not a behavior.** No inspect-only
+  socket exists, so the container holds full docker control even though
+  the script only inspects and restarts. Hence: a locally built image,
+  a ~50-line script as the whole program, off by default, and the README
+  states the grant plainly.
+- **It stays out of the status script.** `docker restart` does not
+  increment the restart counter `status.sh` reads, so watchdog actions
+  are visible in the watchdog's own log only — kept that way until it
+  proves insufficient.
+
+## 9. Testing
 
 `tests/ci.sh` holds the entire test suite in one script, runnable locally
 and run identically by CI: shellcheck over every script, a render through
@@ -207,11 +237,8 @@ real checksums — setup verifies them like the real thing), a validation of
 the merged compose stack, and assertions that the fixture values landed in
 the output.
 
-## 8. Possible future improvements
+## 10. Possible future improvements
 
-- **Restart watchdog**: an optional watchdog that restarts
-  unhealthy-but-alive containers — also an opt-in overlay, default off:
-  the base stack stays signals-only ([health model](#4-health-model)).
 - **Metrics profile**: Prometheus + Grafana as a further opt-in tier, for
   operators who want trends and debugging depth beyond
   [alerting](#7-monitoring-optional). Mostly assembly: both clients

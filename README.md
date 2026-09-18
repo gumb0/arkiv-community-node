@@ -112,6 +112,29 @@ To stop tunneling, remove `tunnel` from `COMPOSE_PROFILES` in `.env` and
 re-run `./setup.sh` — it stops the tunnel container. A "network is in
 use" warning is expected — the node's containers keep using the network.
 
+## Joining the marketplace (optional)
+
+The community load balancer pays community nodes for the requests they
+serve, in GLM. Joining is a few steps, each one command of
+`./marketplace.sh`; the commands run in a container from the stack, so
+nothing is installed on your machine.
+
+1. **Create your provider key.** Once:
+
+   ```bash
+   ./marketplace.sh create-key
+   ```
+
+   It asks for a password and writes the key to `secrets/provider-key.json`,
+   a standard encrypted keystore file. This one key posts your offer,
+   signs your tunnel token, and receives your payouts, so keep the file
+   and the password. To move payouts out later, import the file into any
+   wallet that reads keystore files. The key needs a little GLM for gas
+   before it can post: get it from the network's faucet at the Arkiv hub.
+
+The next steps, posting an offer and starting the tunnel with your
+signed token, come with the next commands of the script.
+
 ## Getting alerted (optional)
 
 The health badges signal problems, but somebody has to look at them. The

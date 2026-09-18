@@ -1,0 +1,20 @@
+{
+  "name": "arkiv-node-marketplace",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "The provider's side of the Arkiv community RPC marketplace: the key, the offer, the status and the tunnel token, run from the node's own compose stack.",
+  "scripts": {
+    "test": "node --test \"tests/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@arkiv-network/sdk": "0.8.0-dev.3",
+    "ethers": "^6.17.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}

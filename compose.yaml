@@ -94,6 +94,18 @@ services:
       # worth showing.
       start_period: 30s
 
+  # The marketplace commands (marketplace.sh; README, "Joining the
+  # marketplace"). Never started by `up`: the script runs one command at
+  # a time and the container exits with it. The key file it creates
+  # lands in secrets/ on the host.
+  marketplace:
+    profiles: ["marketplace"]
+    build: ./marketplace
+    volumes:
+      - ./secrets:/secrets
+    environment:
+      MARKETPLACE_KEYSTORE: /secrets/provider-key.json
+
   # Optional: on-box monitoring (Uptime Kuma) — alerts the operator when a
   # badge goes bad, instead of waiting to be looked at. Off unless the
   # monitor profile is enabled (COMPOSE_PROFILES in .env). Suggested

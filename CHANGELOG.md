@@ -5,6 +5,13 @@ same for every release: `git pull` in this clone, then `./setup.sh`.
 An "Upgrade notes" line appears only when a release needs more than
 that.
 
+## Unreleased
+
+- `marketplace.sh`: the first step of joining the community RPC
+  marketplace, `create-key`, which makes the provider key as a standard
+  encrypted keystore file in `secrets/`. Runs in a container from the
+  stack (the `marketplace` profile, never started by `up`).
+
 ## v0.1.1
 
 - The tunnel proxy name is derived from the assigned remote port. The

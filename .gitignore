@@ -7,6 +7,9 @@ artifacts/
 compose.override.yaml
 .setup-state/
 
+# Dependencies of the marketplace package (installed by npm ci)
+marketplace/node_modules/
+
 # IDE / editor
 .idea/
 .vscode/

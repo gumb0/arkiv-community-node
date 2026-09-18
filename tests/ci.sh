@@ -8,6 +8,9 @@ note(){ printf '== %s\n' "$*"; }
 note "shellcheck every shell script"
 git ls-files '*.sh' | xargs -r shellcheck
 
+note "marketplace package: typecheck and unit tests"
+(cd marketplace && npm ci --silent && npm run --silent typecheck && npm test)
+
 note "render through setup.sh against the fixture network"
 NETWORK_DIR=tests/fixture-network ./setup.sh --render-only
 
@@ -28,6 +31,6 @@ grep -q 'serverAddr = "203.0.113.7"' frpc.toml
 grep -q 'remotePort = 18545' frpc.toml
 
 note "the stack validates with every profile enabled"
-COMPOSE_PROFILES=tunnel,monitor docker compose config -q
+COMPOSE_PROFILES=tunnel,monitor,marketplace docker compose config -q
 
 note "all green"

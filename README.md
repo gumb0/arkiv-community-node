@@ -132,8 +132,22 @@ nothing is installed on your machine.
    wallet that reads keystore files. The key needs a little GLM for gas
    before it can post: get it from the network's faucet at the Arkiv hub.
 
-The next steps, posting an offer and starting the tunnel with your
-signed token, come with the next commands of the script.
+2. **Offer your node.** With the node synced and the key funded:
+
+   ```bash
+   ./marketplace.sh post-offer
+   ```
+
+   It reads your node's chain, head and client versions and your
+   machine's CPUs and memory, shows the rate the load balancer pays and
+   how many of its slots are taken, asks for the key password, and posts
+   the offer through your own node. The offer is valid for a day. It
+   refuses, before asking the password, while your node is still
+   syncing, while you already have a live offer or an agreement, and
+   while the key has no GLM for gas.
+
+The last step, starting the tunnel with your signed token once the
+offer is accepted, comes with the next command of the script.
 
 ## Getting alerted (optional)
 

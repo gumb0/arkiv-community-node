@@ -1,0 +1,113 @@
+// The record shapes: what an offer is written as, what a listing and
+// an agreement read as, and the query text. Run: npm test
+
+import { deepStrictEqual as deepEqual, strictEqual as equal, throws } from "node:assert/strict"
+import { describe, it } from "node:test"
+import { Entity, addr, i32, key, str, type Attributes } from "@arkiv-network/sdk"
+import { bytesToString, stringToBytes, type Hex } from "viem"
+import {
+  KIND,
+  alive,
+  attrAddr,
+  byKind,
+  creator,
+  decodeAgreement,
+  decodeListing,
+  decodeOffer,
+  offerRecord,
+} from "../src/records.ts"
+
+const LISTING = `0x${"a1".repeat(32)}` as Hex
+const LB = "0xCA4B166EE155Cb2816Dc25f94Dc1fD102a26c997" as Hex
+const ME = "0x2121212121212121212121212121212121212121" as Hex
+
+const specs = {
+  chain_id: 7738577,
+  head: 123456,
+  el: "arkiv-reth/v0.2.0",
+  cl: "lighthouse/v8.2.1",
+  hw: { cpus: 8, mem_gb: 32 },
+}
+
+/** A queried entity, the way the SDK hands one back. */
+function entity(fields: { key: Hex; expiresAt: bigint; attributes: Record<string, unknown>; payload: object }): Entity {
+  return new Entity({
+    key: fields.key,
+    creator: LB,
+    expiresAt: fields.expiresAt,
+    attributes: fields.attributes as Attributes,
+    payload: stringToBytes(JSON.stringify(fields.payload)),
+  })
+}
+
+describe("the offer", () => {
+  it("is written with the attributes and payload ENTITIES.md names", () => {
+    const record = offerRecord(LISTING, specs)
+    deepEqual(record.attributes, {
+      kind: str("rpc.offer"),
+      v: i32(1),
+      lb_listing: key(LISTING),
+    })
+    equal(record.contentType, "application/json")
+    deepEqual(JSON.parse(bytesToString(record.payload)), { specs })
+  })
+
+  it("reads back", () => {
+    const offer = decodeOffer(
+      entity({
+        key: `0x${"0f".repeat(32)}` as Hex,
+        expiresAt: 500n,
+        attributes: { kind: str(KIND.offer), v: i32(1), lb_listing: key(LISTING) },
+        payload: { specs },
+      }),
+    )
+    equal(offer.lbListing, LISTING)
+    equal(offer.expiresAt, 500n)
+    deepEqual(offer.specs, specs)
+  })
+})
+
+describe("the load balancer's records", () => {
+  it("the listing reads its rate, tunnel server and cap", () => {
+    const listing = decodeListing(
+      entity({
+        key: LISTING,
+        expiresAt: 9000n,
+        attributes: { kind: str(KIND.listing), v: i32(1) },
+        payload: { wei_per_call: "1000000000000000", tunnel_server: "203.0.113.10:7000", max_providers: 100 },
+      }),
+    )
+    equal(listing.key, LISTING)
+    equal(listing.weiPerCall, 1_000_000_000_000_000n)
+    equal(listing.tunnelServer, "203.0.113.10:7000")
+    equal(listing.maxProviders, 100)
+  })
+
+  it("the agreement reads its provider, offer, rate and port", () => {
+    const agreement = decodeAgreement(
+      entity({
+        key: `0x${"9c".repeat(32)}` as Hex,
+        expiresAt: 7200n,
+        attributes: { kind: str(KIND.agreement), v: i32(1), provider: addr(ME), offer: key(`0x${"0f".repeat(32)}`) },
+        payload: { wei_per_call: "1000000000000000", remote_port: 20007 },
+      }),
+    )
+    equal(agreement.provider.toLowerCase(), ME.toLowerCase())
+    equal(agreement.remotePort, 20007)
+    equal(agreement.weiPerCall, 1_000_000_000_000_000n)
+  })
+
+  it("a record without the attribute or the payload is an error, not a guess", () => {
+    throws(() => decodeAgreement(new Entity({ key: LISTING, expiresAt: 1n, attributes: {}, payload: stringToBytes("{}") })), /provider/)
+    throws(() => decodeListing(new Entity({ key: LISTING, expiresAt: 1n, attributes: {} })), /payload/)
+  })
+})
+
+describe("the query text", () => {
+  it("is typed literals joined by AND, from the kind and the version", () => {
+    equal(
+      byKind(KIND.agreement, creator(LB), attrAddr("provider", ME), alive(123n)),
+      "kind = str('rpc.agreement') AND v = i32(1) AND $creator = addr(0xca4b166ee155cb2816dc25f94dc1fd102a26c997) AND provider = addr(0x2121212121212121212121212121212121212121) AND $expiresAt > u64(123)",
+    )
+  })
+})

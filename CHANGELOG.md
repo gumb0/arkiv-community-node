@@ -7,10 +7,14 @@ that.
 
 ## Unreleased
 
-- `marketplace.sh`: the first step of joining the community RPC
-  marketplace, `create-key`, which makes the provider key as a standard
-  encrypted keystore file in `secrets/`. Runs in a container from the
-  stack (the `marketplace` profile, never started by `up`).
+- `marketplace.sh`: the first steps of joining the community RPC
+  marketplace. `create-key` makes the provider key as a standard
+  encrypted keystore file in `secrets/`; `post-offer` posts the node's
+  specs as an offer to the load balancer, through the node itself,
+  after checking every reason the offer would be skipped. Runs in a
+  container from the stack (the `marketplace` profile, never started by
+  `up`). The load balancer's address ships in `marketplace/addresses.json`,
+  per chain; `LB_ADDRESS` in `.env` overrides it.
 
 ## v0.1.1
 

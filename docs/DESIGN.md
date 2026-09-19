@@ -150,14 +150,16 @@ RPC. Its design rules:
 
 ## 6. The tunnel (optional)
 
-A node behind NAT cannot be reached from outside; the distribution can
-serve its JSON-RPC through a **tunnel server** instead. This is an opt-in
-overlay: a compose profile, off by default, enabled by one `.env` line
-plus three values the tunnel server operator provides (server address,
-auth token, assigned port). The tunnel client is
-[frp](https://github.com/fatedier/frp); it opens one outbound connection
-and keeps retrying on its own when the server is away, so a server
-restart needs no action from the operator.
+A node behind NAT cannot be reached from outside; the distribution
+serves its JSON-RPC to the load balancer through a **tunnel server**
+instead. This is an opt-in overlay: a compose profile, off by default,
+turned on by `marketplace.sh start-tunnel` together with the five
+`.env` values it writes from the node's agreement (server address and
+port, assigned port, agreement id, and a token: the agreement id
+signed by the provider key, which the tunnel server admits the client
+by). The tunnel client is [frp](https://github.com/fatedier/frp); it
+opens one outbound connection and keeps retrying on its own when the
+server is away, so a server restart needs no action from the operator.
 
 Design choices:
 
@@ -167,9 +169,11 @@ Design choices:
   verified in the Dockerfile — no third-party image to trust, same trust
   chain as everything else in the stack.
 - **Configuration follows the [model](#3-configuration-model):** the
-  `TUNNEL_*` values are operator values in `.env` (the token is a secret
-  and stays there), and the client config is rendered from a template by
-  `setup.sh` like the rest.
+  `TUNNEL_*` values are operator values in `.env`, written by the
+  marketplace command rather than typed, and the client config is
+  rendered from a template by `setup.sh` like the rest. The token is a
+  signature, not a secret: it admits only the client of the key that
+  made it.
 - **"Up" does not mean "connected", so the tunnel gets its own badge.** The healthcheck asks the
   client's own local status endpoint whether the proxy is running, and
   `status.sh` reports the same distinction.

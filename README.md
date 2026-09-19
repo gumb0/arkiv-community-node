@@ -89,24 +89,24 @@ internet:
 
 ## Serving through a tunnel (optional)
 
-A node behind NAT can serve its JSON-RPC on a tunnel server. The tunnel
-server operator gives you three values; put them in `.env` and enable
-the profile:
+A node behind NAT serves its JSON-RPC to the load balancer through a
+tunnel. The tunnel is part of joining the marketplace: once your offer
+is accepted, `./marketplace.sh start-tunnel` writes the tunnel settings
+into `.env` from your agreement, turns the `tunnel` profile on, and
+runs `./setup.sh`, which starts one more container, the tunnel client
+([frp](https://github.com/fatedier/frp), pinned and checksum-verified
+at build). It connects out to the tunnel server with a token signed by
+your provider key; your RPC then answers on that server at the port
+your agreement assigns. Nothing on your own machine is opened to the
+internet, and the tunnel survives restarts on either side without your
+help.
 
-```bash
-COMPOSE_PROFILES=tunnel
-TUNNEL_SERVER_ADDR=<tunnel server host>
-TUNNEL_AUTH_TOKEN=<token>       # a secret — do not paste it anywhere
-TUNNEL_REMOTE_PORT=<your assigned port>
-```
-
-Then re-run `./setup.sh`. This starts one more container, the tunnel
-client ([frp](https://github.com/fatedier/frp), pinned and
-checksum-verified at build). It connects out to the tunnel server; your
-RPC then answers on that server at your assigned port. Who can reach
-that port is the server operator's choice — nothing on your own machine
-is opened to the internet, and the tunnel survives restarts on either
-side without your help.
+If the tunnel server turns the client away, the reason is in the
+client's log (`docker compose logs tunnel`), in plain words: the
+agreement it names is unknown, the token was not signed by the key
+that posted the offer, or the port is not the assigned one. Run
+`./marketplace.sh status` to see your agreement, and `start-tunnel`
+again after it changed.
 
 To stop tunneling, remove `tunnel` from `COMPOSE_PROFILES` in `.env` and
 re-run `./setup.sh` — it stops the tunnel container. A "network is in
@@ -158,8 +158,20 @@ nothing is installed on your machine.
    payout, and the payouts received. Payouts are made in GLM to your
    provider key, on the payout chain the receipt names.
 
-The last step, starting the tunnel with your signed token once the
-offer is accepted, comes with the next command of the script.
+4. **Connect.** Once `status` shows an agreement:
+
+   ```bash
+   ./marketplace.sh start-tunnel
+   ```
+
+   It signs your agreement id with your key, writes the tunnel settings
+   into `.env`, and starts the tunnel client (see "Serving through a
+   tunnel" below). Your node then serves requests from the load
+   balancer and is paid for them; `status` shows the count growing.
+
+Your key is also your payout key: payouts are GLM transfers to its
+address on the payout chain the receipt names. To move them, import
+`secrets/provider-key.json` into a wallet that reads keystore files.
 
 ## Getting alerted (optional)
 

@@ -1,17 +1,25 @@
 # Template for frpc.toml — the tunnel client config, rendered by setup.sh
 # when the tunnel profile is enabled. Do not edit the rendered file.
 #
-# The values come from the tunnel server operator (see .env.example):
+# The values are written into .env by `./marketplace.sh start-tunnel`,
+# from your agreement with the load balancer:
 # TUNNEL_SERVER_ADDR — the tunnel server host
-# TUNNEL_AUTH_TOKEN  — shared token for that server
+# TUNNEL_SERVER_PORT — its port
 # TUNNEL_REMOTE_PORT — the port assigned to this node on the tunnel host
+# TUNNEL_AGREEMENT   — your agreement id
+# TUNNEL_TOKEN       — your signature over it, which admits this client
 
 serverAddr = "${TUNNEL_SERVER_ADDR}"
-serverPort = 7000
-auth.token = "${TUNNEL_AUTH_TOKEN}"
+serverPort = ${TUNNEL_SERVER_PORT}
 # Keep retrying when the server is unreachable (e.g. it restarts)
 # instead of exiting; reconnects unattended in ~10 s.
 loginFailExit = false
+
+# Admission: the tunnel server admits this client by the signed token,
+# not by a shared password. A rejection is shown in this client's log
+# with the reason.
+metadatas.agreement = "${TUNNEL_AGREEMENT}"
+metadatas.token = "${TUNNEL_TOKEN}"
 
 # Status endpoint for status.sh: GET /api/status reports the proxy state.
 # Bound to all container interfaces; compose publishes it to host loopback.

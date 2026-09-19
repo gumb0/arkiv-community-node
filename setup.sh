@@ -47,8 +47,10 @@ env_el_port="${EL_RPC_PORT:-}"
 env_cl_port="${CL_HTTP_PORT:-}"
 env_profiles="${COMPOSE_PROFILES:-}"
 env_tun_server="${TUNNEL_SERVER_ADDR:-}"
-env_tun_token="${TUNNEL_AUTH_TOKEN:-}"
+env_tun_server_port="${TUNNEL_SERVER_PORT:-}"
 env_tun_port="${TUNNEL_REMOTE_PORT:-}"
+env_tun_agreement="${TUNNEL_AGREEMENT:-}"
+env_tun_token="${TUNNEL_TOKEN:-}"
 if [ -f .env ]; then
   set -a
   # shellcheck source=/dev/null # .env does not exist on CI and linter would complain
@@ -60,8 +62,10 @@ fi
 [ -n "$env_cl_port" ]     && CL_HTTP_PORT="$env_cl_port"
 [ -n "$env_profiles" ]    && COMPOSE_PROFILES="$env_profiles"
 [ -n "$env_tun_server" ]  && TUNNEL_SERVER_ADDR="$env_tun_server"
-[ -n "$env_tun_token" ]   && TUNNEL_AUTH_TOKEN="$env_tun_token"
+[ -n "$env_tun_server_port" ] && TUNNEL_SERVER_PORT="$env_tun_server_port"
 [ -n "$env_tun_port" ]    && TUNNEL_REMOTE_PORT="$env_tun_port"
+[ -n "$env_tun_agreement" ] && TUNNEL_AGREEMENT="$env_tun_agreement"
+[ -n "$env_tun_token" ]   && TUNNEL_TOKEN="$env_tun_token"
 
 # The optional profiles (COMPOSE_PROFILES in .env, comma-separated).
 tunnel_on=0 monitor_on=0
@@ -78,10 +82,10 @@ Set it in .env to the network artifacts directory you received (see .env.example
 [ -d "$NETWORK_DIR" ] || die "the network artifacts directory does not exist: $NETWORK_DIR
 Check NETWORK_DIR in .env."
 if [ "$tunnel_on" = 1 ]; then
-  if [ -z "${TUNNEL_SERVER_ADDR:-}" ] || [ -z "${TUNNEL_AUTH_TOKEN:-}" ] || [ -z "${TUNNEL_REMOTE_PORT:-}" ]; then
-    die "the tunnel profile is enabled, but TUNNEL_SERVER_ADDR, TUNNEL_AUTH_TOKEN
-or TUNNEL_REMOTE_PORT is not set (see .env.example)."
-  fi
+  for name in TUNNEL_SERVER_ADDR TUNNEL_SERVER_PORT TUNNEL_REMOTE_PORT TUNNEL_AGREEMENT TUNNEL_TOKEN; do
+    [ -n "${!name:-}" ] || die "the tunnel profile is enabled, but $name is not set.
+The tunnel settings are written by ./marketplace.sh start-tunnel (see the README)."
+  done
 fi
 
 if [ "$REFRESH" = 1 ]; then
@@ -190,9 +194,9 @@ envsubst '${EL_IMAGE} ${CL_IMAGE} ${EL_ENODES} ${CL_ENRS}' \
 note "Rendered compose.override.yaml."
 
 if [ "$tunnel_on" = 1 ]; then
-  export TUNNEL_SERVER_ADDR TUNNEL_AUTH_TOKEN TUNNEL_REMOTE_PORT
+  export TUNNEL_SERVER_ADDR TUNNEL_SERVER_PORT TUNNEL_REMOTE_PORT TUNNEL_AGREEMENT TUNNEL_TOKEN
   # shellcheck disable=SC2016  # Same as above: the single quotes are the point.
-  envsubst '${TUNNEL_SERVER_ADDR} ${TUNNEL_AUTH_TOKEN} ${TUNNEL_REMOTE_PORT}' \
+  envsubst '${TUNNEL_SERVER_ADDR} ${TUNNEL_SERVER_PORT} ${TUNNEL_REMOTE_PORT} ${TUNNEL_AGREEMENT} ${TUNNEL_TOKEN}' \
     < templates/frpc.toml.tmpl > frpc.toml
   note "Rendered frpc.toml."
 fi

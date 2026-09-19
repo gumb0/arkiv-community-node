@@ -12,8 +12,10 @@ import {
   byKind,
   creator,
   decodeAgreement,
+  decodeCounter,
   decodeListing,
   decodeOffer,
+  decodeReceipt,
   offerRecord,
 } from "../src/records.ts"
 
@@ -95,6 +97,69 @@ describe("the load balancer's records", () => {
     equal(agreement.provider.toLowerCase(), ME.toLowerCase())
     equal(agreement.remotePort, 20007)
     equal(agreement.weiPerCall, 1_000_000_000_000_000n)
+  })
+
+  it("the counter record reads its count, its span and its state", () => {
+    const base = { agreement: key(`0x${"9c".repeat(32)}`), provider: addr(ME) }
+    const open = decodeCounter(
+      entity({
+        key: `0x${"c1".repeat(32)}` as Hex,
+        expiresAt: 90000n,
+        attributes: { kind: str(KIND.counter), v: i32(1), ...base, state: str("open") },
+        payload: { count: 48213, wei_per_call: "1000000000000000", opened_block: 1204000 },
+      }),
+    )
+    equal(open.state, "open")
+    equal(open.count, 48213)
+    equal(open.openedBlock, 1204000)
+    equal(open.closedBlock, undefined, "absent while open")
+    equal(open.agreement, `0x${"9c".repeat(32)}`)
+
+    const closed = decodeCounter(
+      entity({
+        key: `0x${"c2".repeat(32)}` as Hex,
+        expiresAt: 90000n,
+        attributes: { kind: str(KIND.counter), v: i32(1), ...base, state: str("closed") },
+        payload: { count: 48213, wei_per_call: "1000000000000000", opened_block: 1204000, closed_block: 1506400 },
+      }),
+    )
+    equal(closed.state, "closed")
+    equal(closed.closedBlock, 1506400)
+
+    throws(
+      () =>
+        decodeCounter(
+          entity({
+            key: `0x${"c3".repeat(32)}` as Hex,
+            expiresAt: 90000n,
+            attributes: { kind: str(KIND.counter), v: i32(1), ...base, state: str("paid") },
+            payload: { count: 1, wei_per_call: "1", opened_block: 1 },
+          }),
+        ),
+      /expected open or closed/,
+    )
+  })
+
+  it("the receipt reads the record it pays, the amount and the transfer", () => {
+    const receipt = decodeReceipt(
+      entity({
+        key: `0x${"e1".repeat(32)}` as Hex,
+        expiresAt: 0n,
+        attributes: { kind: str(KIND.receipt), v: i32(1), counter: key(`0x${"c2".repeat(32)}`), provider: addr(ME) },
+        payload: {
+          agreement: `0x${"9c".repeat(32)}`,
+          count: 48213,
+          wei_per_call: "1000000000000000",
+          amount_wei: "48213000000000000000",
+          payout: { chain_id: 560048, tx: "0x925d33c7" },
+        },
+      }),
+    )
+    equal(receipt.counter, `0x${"c2".repeat(32)}`)
+    equal(receipt.agreement, `0x${"9c".repeat(32)}`)
+    equal(receipt.count, 48213)
+    equal(receipt.amountWei, 48_213_000_000_000_000_000n)
+    deepEqual(receipt.payout, { chainId: 560048, tx: "0x925d33c7" })
   })
 
   it("a record without the attribute or the payload is an error, not a guess", () => {

@@ -124,3 +124,60 @@ export function offerRecord(lbListing: Hex, specs: Specs): OfferRecord {
     contentType: "application/json",
   }
 }
+
+// --- the count and the payout ----------------------------------------------
+
+export type Counter = {
+  key: Hex
+  expiresAt: bigint
+  agreement: Hex
+  provider: Hex
+  state: "open" | "closed"
+  count: number
+  weiPerCall: bigint
+  openedBlock: number
+  closedBlock?: number
+}
+
+export function decodeCounter(entity: Entity): Counter {
+  const payload = payloadJson(entity)
+  const state = attribute(entity, "state", "str")
+  if (state !== "open" && state !== "closed") {
+    throw new Error(`record ${entity.key} has state ${String(state)}, expected open or closed`)
+  }
+  return {
+    key: entity.key as Hex,
+    expiresAt: expiresAt(entity),
+    agreement: attribute(entity, "agreement", "key") as Hex,
+    provider: attribute(entity, "provider", "addr") as Hex,
+    state,
+    count: payload.count as number,
+    weiPerCall: BigInt(payload.wei_per_call as string),
+    openedBlock: payload.opened_block as number,
+    ...(payload.closed_block === undefined ? {} : { closedBlock: payload.closed_block as number }),
+  }
+}
+
+export type Receipt = {
+  key: Hex
+  counter: Hex
+  provider: Hex
+  agreement: Hex
+  count: number
+  amountWei: bigint
+  payout: { chainId: number; tx: string }
+}
+
+export function decodeReceipt(entity: Entity): Receipt {
+  const payload = payloadJson(entity)
+  const payout = payload.payout as { chain_id: number; tx: string }
+  return {
+    key: entity.key as Hex,
+    counter: attribute(entity, "counter", "key") as Hex,
+    provider: attribute(entity, "provider", "addr") as Hex,
+    agreement: payload.agreement as Hex,
+    count: payload.count as number,
+    amountWei: BigInt(payload.amount_wei as string),
+    payout: { chainId: payout.chain_id, tx: payout.tx },
+  }
+}

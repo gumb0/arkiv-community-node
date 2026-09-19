@@ -5,10 +5,10 @@ import { deepStrictEqual as deepEqual, strictEqual as equal, match, ok } from "n
 import { describe, it } from "node:test"
 import { Entity, addr, i32, key, str, type Attributes } from "@arkiv-network/sdk"
 import { bytesToString, stringToBytes, type Hex } from "viem"
-import type { Reader, Writer } from "../src/chain.ts"
 import type { NodeFacts } from "../src/node.ts"
 import { OFFER_DAYS, postOffer } from "../src/commands/post-offer.ts"
 import { KIND } from "../src/records.ts"
+import { fakeChain } from "./chain.ts"
 
 const LB = "0xCA4B166EE155Cb2816Dc25f94Dc1fD102a26c997" as Hex
 const ME = "0x2121212121212121212121212121212121212121" as Hex
@@ -36,30 +36,6 @@ const listing = (k = LISTING, expiresAt = 5000n) =>
 const myAgreement = () => record(AGREEMENT, KIND.agreement, { provider: addr(ME), offer: key(OFFER) }, { wei_per_call: "1", remote_port: 20007 })
 const myOffer = () => record(OFFER, KIND.offer, { lb_listing: key(LISTING) }, { specs: node.specs })
 
-/** A chain that answers each query by the kind it names. */
-function fakeChain(rows: { listings?: Entity[]; agreements?: Entity[]; offers?: Entity[]; balance?: bigint; taken?: number }) {
-  const created: { record: { attributes: unknown; payload: Uint8Array }; days: number }[] = []
-  const reader: Reader = {
-    chainId: 7738577,
-    head: async () => 1000n,
-    balance: async () => rows.balance ?? 10n ** 18n,
-    query: async (text) => {
-      if (text.includes("rpc.lb_listing")) return rows.listings ?? []
-      if (text.includes("rpc.agreement")) return rows.agreements ?? []
-      if (text.includes("rpc.offer")) return rows.offers ?? []
-      throw new Error(`unexpected query ${text}`)
-    },
-    count: async () => rows.taken ?? 3,
-  }
-  const writer: Writer = {
-    createOffer: async (rec, days) => {
-      created.push({ record: rec, days })
-      return { entityKey: OFFER, expiresAt: 1000n + 43200n }
-    },
-  }
-  return { reader, writer, created }
-}
-
 async function run(chain: ReturnType<typeof fakeChain>, facts = node) {
   const lines: string[] = []
   let unlocked = false
@@ -79,7 +55,7 @@ async function run(chain: ReturnType<typeof fakeChain>, facts = node) {
 
 describe("post-offer", () => {
   it("posts the node's specs against the listing, for one day", async () => {
-    const chain = fakeChain({ listings: [listing()] })
+    const chain = fakeChain({ listing: [listing()] })
     const { outcome, lines, unlocked } = await run(chain)
     deepEqual(outcome, { posted: OFFER })
     ok(unlocked, "the key was unlocked to sign")
@@ -95,17 +71,17 @@ describe("post-offer", () => {
 
   it("points at the oldest listing when there are several", async () => {
     const other = `0x${"a2".repeat(32)}` as Hex
-    const chain = fakeChain({ listings: [listing(other, 9000n), listing(LISTING, 5000n)] })
+    const chain = fakeChain({ listing: [listing(other, 9000n), listing(LISTING, 5000n)] })
     await run(chain)
     deepEqual((chain.created[0]?.record.attributes as { lb_listing: unknown }).lb_listing, key(LISTING))
   })
 
   const refusals: [string, Parameters<typeof fakeChain>[0], NodeFacts, RegExp][] = [
-    ["a syncing node", { listings: [listing()] }, { ...node, syncing: true }, /still syncing/],
+    ["a syncing node", { listing: [listing()] }, { ...node, syncing: true }, /still syncing/],
     ["no listing", {}, node, /no listing from the load balancer/],
-    ["a live agreement", { listings: [listing()], agreements: [myAgreement()] }, node, /already have an agreement.*port 20007/],
-    ["a live offer", { listings: [listing()], offers: [myOffer()] }, node, /already have a live offer/],
-    ["an unfunded key", { listings: [listing()], balance: 0n }, node, /no GLM for gas/],
+    ["a live agreement", { listing: [listing()], agreement: [myAgreement()] }, node, /already have an agreement.*port 20007/],
+    ["a live offer", { listing: [listing()], offer: [myOffer()] }, node, /already have a live offer/],
+    ["an unfunded key", { listing: [listing()], balance: 0n }, node, /no GLM for gas/],
   ]
   for (const [name, rows, facts, why] of refusals) {
     it(`refuses with ${name}, before the key is unlocked`, async () => {

@@ -1,10 +1,11 @@
 // The command line the wrapper script (marketplace.sh) calls inside
 // the container: one subcommand per step of joining the marketplace.
 
-import { lbAddress } from "./addresses.ts"
+import { lbAddress, settleAddress } from "./addresses.ts"
 import { connectReader, connectWriter } from "./chain.ts"
 import { createKeyCommand } from "./commands/create-key.ts"
 import { postOffer } from "./commands/post-offer.ts"
+import { status } from "./commands/status.ts"
 import { keyAddress, loadKey } from "./keystore.ts"
 import { readNode } from "./node.ts"
 import { askPassword } from "./prompt.ts"
@@ -19,7 +20,19 @@ const usage = `usage: marketplace <command>
 
   create-key    create your provider key (once)
   post-offer    offer your node to the load balancer
+  status        your offer, agreement, counts and payouts
 `
+
+async function statusCommand(): Promise<void> {
+  const reader = await connectReader(EL_URL)
+  await status({
+    reader,
+    lb: lbAddress(reader.chainId, ADDRESSES),
+    settle: settleAddress(reader.chainId, ADDRESSES),
+    me: await keyAddress(KEYSTORE),
+    print: (line) => console.log(line),
+  })
+}
 
 async function postOfferCommand(): Promise<void> {
   const me = await keyAddress(KEYSTORE)
@@ -48,6 +61,9 @@ async function main(args: string[]): Promise<void> {
       return
     case "post-offer":
       await postOfferCommand()
+      return
+    case "status":
+      await statusCommand()
       return
     default:
       console.error(usage)

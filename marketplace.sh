@@ -12,6 +12,7 @@ usage: ./marketplace.sh <command>
 
   create-key    create your provider key (once)
   post-offer    offer your node to the load balancer
+  status        your offer, agreement, counts and payouts
 USAGE
 }
 
@@ -23,7 +24,7 @@ run() {
 
 command="${1:-}"
 case "$command" in
-  create-key|post-offer) run "$command" ;;
+  create-key|post-offer|status) run "$command" ;;
   -h|--help|"") usage ;;
   *) usage >&2; exit 2 ;;
 esac

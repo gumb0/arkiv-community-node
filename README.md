@@ -146,6 +146,18 @@ nothing is installed on your machine.
    syncing, while you already have a live offer or an agreement, and
    while the key has no GLM for gas.
 
+3. **See where you stand.** At any time:
+
+   ```bash
+   ./marketplace.sh status
+   ```
+
+   One line each: your key and its balance, the load balancer's rate
+   and free slots, your offer, your agreement with its tunnel port,
+   the requests counted for you so far, the closed counts awaiting
+   payout, and the payouts received. Payouts are made in GLM to your
+   provider key, on the payout chain the receipt names.
+
 The last step, starting the tunnel with your signed token once the
 offer is accepted, comes with the next command of the script.
 

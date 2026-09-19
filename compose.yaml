@@ -105,9 +105,10 @@ services:
       - ./secrets:/secrets
     environment:
       MARKETPLACE_KEYSTORE: /secrets/provider-key.json
-      # The load balancer's address ships with the distribution
-      # (marketplace/addresses.json); LB_ADDRESS in .env overrides it.
+      # The load balancer's and the settle key's addresses ship with the
+      # distribution (marketplace/addresses.json); .env overrides them.
       LB_ADDRESS: ${LB_ADDRESS:-}
+      SETTLE_ADDRESS: ${SETTLE_ADDRESS:-}
 
   # Optional: on-box monitoring (Uptime Kuma) — alerts the operator when a
   # badge goes bad, instead of waiting to be looked at. Off unless the

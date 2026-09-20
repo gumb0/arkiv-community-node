@@ -19,6 +19,9 @@ USAGE
 # One command in the container. --user keeps files it writes (the key,
 # the tunnel settings) owned by you, not by the container's user.
 run() {
+  # Before setup.sh has run there is no secrets/ yet, and docker would
+  # create the mounted directory as root, out of the operator's reach.
+  mkdir -p secrets
   docker compose --profile marketplace run --rm --user "$(id -u):$(id -g)" marketplace "$@"
 }
 

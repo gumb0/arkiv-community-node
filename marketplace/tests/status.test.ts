@@ -48,20 +48,25 @@ const rows: Rows = {
   taken: 7,
 }
 
-async function lines(rows: Rows, settle: Hex | undefined): Promise<string[]> {
+type Tunnel = { agreement?: string; port?: number } | undefined
+
+const TUNNEL: Tunnel = { agreement: AGREEMENT, port: 20007 }
+
+async function lines(rows: Rows, settle: Hex | undefined, tunnel: Tunnel): Promise<string[]> {
   const out: string[] = []
-  await status({ reader: fakeChain(rows).reader, lb: LB, settle, me: ME, print: (line) => out.push(line) })
+  await status({ reader: fakeChain(rows).reader, lb: LB, settle, me: ME, tunnel, print: (line) => out.push(line) })
   return out
 }
 
 describe("status", () => {
   it("reads every line from the records", async () => {
-    const out = await lines(rows, SETTLE)
+    const out = await lines(rows, SETTLE, TUNNEL)
     deepEqual(out, [
       `Key: ${ME}, 1 GLM for gas on the Arkiv chain`,
       "Load balancer: pays 0.001 GLM per request, 7 of 100 slots taken",
       `Offer: ${OFFER}, expires in about 60 minutes`,
       `Agreement: ${AGREEMENT}, tunnel port 20007, 0.001 GLM per request, expires in about 3 days`,
+      "Tunnel: configured for this agreement",
       `Counting: 48213 requests since block 900 (record ${COUNTER_OPEN})`,
       "Awaiting payout: 1 closed record, 100 requests",
       "Payouts: 1 receipt, 0.25 GLM in total; last transfer 0x925d33c7 on chain 560048",
@@ -69,20 +74,32 @@ describe("status", () => {
   })
 
   it("says what is missing", async () => {
-    const out = await lines({ balance: 0n }, undefined)
+    const out = await lines({ balance: 0n }, undefined, undefined)
     match(out[0]!, /0 GLM for gas on the Arkiv chain/)
     match(out[1]!, /no listing from/)
     equal(out[2], "Offer: none")
     equal(out[3], "Agreement: none")
-    equal(out[4], "Counting: no open record")
+    equal(out[4], "Counting: no open record", "no tunnel line without an agreement")
     equal(out[5], "Awaiting payout: nothing")
     equal(out[6], "Payouts: no settle address is shipped for this chain yet")
   })
 
+  it("says when the tunnel is not the agreement's", async () => {
+    const notStarted = await lines(rows, SETTLE, undefined)
+    equal(notStarted[4], "Tunnel: not started yet: run start-tunnel")
+    const other = `0x${"9d".repeat(32)}`
+    const stale = await lines(rows, SETTLE, { agreement: other, port: 20007 })
+    equal(stale[4], `Tunnel: configured for agreement ${other} on port 20007, not for this one: run start-tunnel again`)
+    const wrongPort = await lines(rows, SETTLE, { agreement: AGREEMENT, port: 20001 })
+    equal(wrongPort[4], `Tunnel: configured for agreement ${AGREEMENT} on port 20001, not for this one: run start-tunnel again`)
+    const upper = await lines(rows, SETTLE, { agreement: AGREEMENT.toUpperCase().replace("0X", "0x"), port: 20007 })
+    equal(upper[4], "Tunnel: configured for this agreement", "case is no difference")
+  })
+
   it("closed records without a receipt await payout, paid ones do not", async () => {
-    const out = await lines({ ...rows, receipt: [] }, SETTLE)
-    equal(out[5], "Awaiting payout: 2 closed records, 350 requests")
-    equal(out[6], "Payouts: none yet")
+    const out = await lines({ ...rows, receipt: [] }, SETTLE, TUNNEL)
+    equal(out[6], "Awaiting payout: 2 closed records, 350 requests")
+    equal(out[7], "Payouts: none yet")
   })
 
   it("words a wait", () => {

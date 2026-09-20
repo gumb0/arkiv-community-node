@@ -109,6 +109,10 @@ services:
       # distribution (marketplace/addresses.json); .env overrides them.
       LB_ADDRESS: ${LB_ADDRESS:-}
       SETTLE_ADDRESS: ${SETTLE_ADDRESS:-}
+      # What the tunnel is configured for, so status can say whether it
+      # matches the current agreement.
+      TUNNEL_AGREEMENT: ${TUNNEL_AGREEMENT:-}
+      TUNNEL_REMOTE_PORT: ${TUNNEL_REMOTE_PORT:-}
 
   # Optional: on-box monitoring (Uptime Kuma) — alerts the operator when a
   # badge goes bad, instead of waiting to be looked at. Off unless the

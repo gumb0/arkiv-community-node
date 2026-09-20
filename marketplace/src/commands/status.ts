@@ -27,6 +27,8 @@ export type Status = {
   /** Unset while no payouts are made on this chain. */
   settle: Hex | undefined
   me: Hex
+  /** What the tunnel is configured for, from .env; unset before start-tunnel ran. */
+  tunnel: { agreement?: string; port?: number } | undefined
   print: (line: string) => void
 }
 
@@ -61,6 +63,21 @@ export async function status(o: Status): Promise<void> {
       ? `Agreement: ${agreement.key}, tunnel port ${agreement.remotePort}, ${formatEther(agreement.weiPerCall)} GLM per request, expires ${left(agreement.expiresAt)}`
       : "Agreement: none",
   )
+  // The tunnel is configured once, at start-tunnel; an agreement that
+  // ended and was made again has a new id and may have a new port, and
+  // the tunnel keeps serving the old one until start-tunnel runs again.
+  if (agreement) {
+    const configured = o.tunnel?.agreement?.toLowerCase()
+    if (!configured) {
+      o.print("Tunnel: not started yet: run start-tunnel")
+    } else if (configured !== agreement.key.toLowerCase() || o.tunnel?.port !== agreement.remotePort) {
+      o.print(
+        `Tunnel: configured for agreement ${o.tunnel?.agreement} on port ${o.tunnel?.port}, not for this one: run start-tunnel again`,
+      )
+    } else {
+      o.print("Tunnel: configured for this agreement")
+    }
+  }
 
   const counters = (
     await o.reader.query(byKind(KIND.counter, creator(o.lb), attrAddr("provider", o.me), alive(head)))

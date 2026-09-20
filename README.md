@@ -154,9 +154,12 @@ nothing is installed on your machine.
 
    One line each: your key and its balance, the load balancer's rate
    and free slots, your offer, your agreement with its tunnel port,
-   the requests counted for you so far, the closed counts awaiting
-   payout, and the payouts received. Payouts are made in GLM to your
-   provider key, on the payout chain the receipt names.
+   whether your tunnel is set up for that agreement, the requests
+   counted for you so far, the closed counts awaiting payout, and the
+   payouts received. Payouts are made in GLM to your provider key, on
+   the payout chain the receipt names. An agreement that ended and was
+   made again has a new id and may have a new port: `status` says so,
+   and `start-tunnel` again moves the tunnel to it.
 
 4. **Connect.** Once `status` shows an agreement:
 

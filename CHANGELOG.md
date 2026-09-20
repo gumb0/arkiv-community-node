@@ -16,7 +16,8 @@ that.
     balancer, through the node itself, after checking every reason the
     offer would be skipped.
   - `status` shows the offer, the agreement, the counts and the payouts
-    from the records.
+    from the records, and whether the tunnel is set up for the current
+    agreement.
   - `start-tunnel` signs the agreement id with the key, writes the
     tunnel settings into `.env` and starts the tunnel.
 

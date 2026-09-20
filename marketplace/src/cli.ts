@@ -73,8 +73,17 @@ async function statusCommand(): Promise<void> {
     lb: lbAddress(reader.chainId, ADDRESSES),
     settle: settleAddress(reader.chainId, ADDRESSES),
     me,
+    tunnel: tunnelSettings(),
     print: (line) => console.log(line),
   })
+}
+
+/** The tunnel settings .env holds, passed in by compose; none before start-tunnel. */
+function tunnelSettings(): { agreement?: string; port?: number } | undefined {
+  const agreement = process.env.TUNNEL_AGREEMENT
+  const port = Number(process.env.TUNNEL_REMOTE_PORT)
+  if (!agreement && !port) return undefined
+  return { ...(agreement ? { agreement } : {}), ...(port ? { port } : {}) }
 }
 
 async function postOfferCommand(): Promise<void> {

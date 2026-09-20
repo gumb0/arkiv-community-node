@@ -47,9 +47,7 @@ async function fromNode<T>(read: () => Promise<T>): Promise<T> {
     return await read()
   } catch (error) {
     const cause = error instanceof Error ? error.message.split("\n")[0] : String(error)
-    throw new Error(
-      `your node is not answering at ${EL_URL}: is it running? (docker compose ps)\n  ${cause}`,
-    )
+    throw new Error(`your node is not answering: is it running? (docker compose ps)\n  ${cause}`)
   }
 }
 

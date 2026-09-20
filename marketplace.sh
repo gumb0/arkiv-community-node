@@ -22,7 +22,10 @@ run() {
   # Before setup.sh has run there is no secrets/ yet, and docker would
   # create the mounted directory as root, out of the operator's reach.
   mkdir -p secrets
-  docker compose --profile marketplace run --rm --user "$(id -u):$(id -g)" marketplace "$@"
+  # Without a live progress display compose prints its "Container
+  # ... Creating" lines above the command's own output; quiet keeps
+  # them out either way. Older compose plugins ignore the variable.
+  COMPOSE_PROGRESS=quiet docker compose --profile marketplace run --rm --user "$(id -u):$(id -g)" marketplace "$@"
 }
 
 # merge_env <env file> <values file>: every NAME=VALUE line of the values

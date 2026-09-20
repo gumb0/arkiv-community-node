@@ -58,4 +58,12 @@ rm -rf "$tmp"
 note "the stack validates with every profile enabled"
 COMPOSE_PROFILES=tunnel,monitor,marketplace docker compose config -q
 
+note "the marketplace image builds and its entrypoint answers"
+docker compose --profile marketplace build -q marketplace
+# No command: the usage, exit code 2. The one run that needs no key,
+# no node and no terminal.
+if docker compose --profile marketplace run --rm -T marketplace >/dev/null 2>&1; then
+  echo "the marketplace container accepted an empty command" >&2; exit 1
+fi
+
 note "all green"

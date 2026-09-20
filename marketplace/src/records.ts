@@ -4,7 +4,7 @@
 import { i32, key, str, jsonToPayload, type AttributeInputs, type Entity } from "@arkiv-network/sdk"
 import { bytesToString, type Hex } from "viem"
 
-export const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 1
 
 export const KIND = {
   listing: "rpc.lb_listing",
@@ -25,8 +25,6 @@ export function byKind(kind: string, ...conditions: string[]): string {
 export const creator = (address: Hex): string => `$creator = addr(${address.toLowerCase()})`
 export const alive = (head: bigint): string => `$expiresAt > u64(${head})`
 export const attrAddr = (name: string, address: Hex): string => `${name} = addr(${address.toLowerCase()})`
-export const attrKey = (name: string, entityKey: Hex): string => `${name} = key(${entityKey.toLowerCase()})`
-export const attrStr = (name: string, value: string): string => `${name} = str('${value.replace(/'/g, "''")}')`
 
 // --- reading ---------------------------------------------------------------
 

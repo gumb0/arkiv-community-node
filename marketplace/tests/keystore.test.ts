@@ -1,7 +1,7 @@
 // The keystore: created once, unlocked by its password, readable by
 // address without it. Run: npm test
 
-import { mkdtempSync, readFileSync } from "node:fs"
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { strictEqual as equal, rejects, ok } from "node:assert/strict"
@@ -27,6 +27,12 @@ describe("the provider key", () => {
     const path = join(dir, "other.json")
     await createKey(path, "the password")
     await rejects(loadKey(path, "another password"))
+  })
+
+  it("tells a file that is not a keystore from one", async () => {
+    const path = join(dir, "not-a-key.json")
+    writeFileSync(path, JSON.stringify({ version: 3 }))
+    await rejects(keyAddress(path), /not a keystore file/)
   })
 
   it("is a standard keystore file", async () => {

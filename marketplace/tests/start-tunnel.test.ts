@@ -76,6 +76,13 @@ describe("start-tunnel", () => {
     equal(written, "")
   })
 
+  it("refuses when the listing is gone, after the agreement is found", async () => {
+    const { outcome, unlocked } = await run({ agreement: [agreement] })
+    ok("refused" in outcome)
+    match(outcome.refused, /listing is gone/)
+    equal(unlocked, false)
+  })
+
   it("reads the tunnel server as host and port", () => {
     deepEqual(splitHostPort("203.0.113.10:7000"), ["203.0.113.10", 7000])
     deepEqual(splitHostPort("tunnel.example.org"), ["tunnel.example.org", 7000])

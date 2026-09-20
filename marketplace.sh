@@ -35,6 +35,8 @@ merge_env() {
   while IFS='=' read -r name value; do
     [ -n "$name" ] || continue
     if grep -q "^${name}=" "$env_file"; then
+      # The tunnel values are hex, numbers and a host: none holds the
+      # '|' this sed uses as its delimiter, or an '&'.
       sed -i "s|^${name}=.*|${name}=${value}|" "$env_file"
     else
       printf '%s=%s\n' "$name" "$value" >> "$env_file"

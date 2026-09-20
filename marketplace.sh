@@ -46,19 +46,35 @@ merge_env() {
 
 # enable_profile <env file> <profile>: adds the profile to
 # COMPOSE_PROFILES, setting the line when there is none.
-enable_profile() {
-  local env_file=$1 profile=$2 current
-  # The value as compose and setup.sh read it: without a trailing
-  # comment, and without spaces, which are no part of a profile name.
-  current=$(grep -E "^COMPOSE_PROFILES=" "$env_file" | head -1 | cut -d= -f2- | sed 's/#.*//; s/[[:space:]]//g' || true)
-  case ",${current}," in
-    *,"$profile",*) return ;;
+# profiles <env file>: the COMPOSE_PROFILES value as compose and
+# setup.sh read it, without a trailing comment or spaces, which are no
+# part of a profile name.
+profiles() {
+  grep -E "^COMPOSE_PROFILES=" "$1" | head -1 | cut -d= -f2- | sed 's/#.*//; s/[[:space:]]//g' || true
+}
+
+has_profile() { # has_profile <env file> <profile>
+  case ",$(profiles "$1")," in
+    *,"$2",*) return 0 ;;
   esac
-  local merged
+  return 1
+}
+
+enable_profile() {
+  local env_file=$1 profile=$2 current merged
+  has_profile "$env_file" "$profile" && return
+  current=$(profiles "$env_file")
   if [ -n "$current" ]; then merged="${current},${profile}"; else merged=$profile; fi
   printf 'COMPOSE_PROFILES=%s\n' "$merged" > "$env_file.profile"
   merge_env "$env_file" "$env_file.profile"
   rm -f "$env_file.profile"
+  # Read back: setup.sh would otherwise go on without the tunnel and
+  # say nothing.
+  if ! has_profile "$env_file" "$profile"; then
+    echo "could not enable the $profile profile in $env_file; its COMPOSE_PROFILES line is:" >&2
+    grep -E "^COMPOSE_PROFILES=" "$env_file" >&2 || echo "(none)" >&2
+    exit 1
+  fi
 }
 
 # The container signs the token and leaves the tunnel settings in

@@ -48,7 +48,9 @@ merge_env() {
 # COMPOSE_PROFILES, setting the line when there is none.
 enable_profile() {
   local env_file=$1 profile=$2 current
-  current=$(grep -E "^COMPOSE_PROFILES=" "$env_file" | head -1 | cut -d= -f2- || true)
+  # The value as compose and setup.sh read it: without a trailing
+  # comment, and without spaces, which are no part of a profile name.
+  current=$(grep -E "^COMPOSE_PROFILES=" "$env_file" | head -1 | cut -d= -f2- | sed 's/#.*//; s/[[:space:]]//g' || true)
   case ",${current}," in
     *,"$profile",*) return ;;
   esac

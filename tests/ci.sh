@@ -53,6 +53,14 @@ grep -qx 'COMPOSE_PROFILES=tunnel,monitor' "$tmp/.env" # added to a set one
 enable_profile "$tmp/.env" tunnel
 grep -qx 'COMPOSE_PROFILES=tunnel,monitor' "$tmp/.env" # not added twice
 [ "$(grep -c '^TUNNEL_TOKEN=' "$tmp/.env")" = 1 ]      # replaced, not added again
+# A trailing comment or a trailing space on the profile line, as an
+# operator's editor leaves them, is no part of the value.
+printf '%s\n' 'COMPOSE_PROFILES=monitor #,tunnel' > "$tmp/.env"
+enable_profile "$tmp/.env" tunnel
+grep -qx 'COMPOSE_PROFILES=monitor,tunnel' "$tmp/.env"
+printf '%s\n' 'COMPOSE_PROFILES=monitor ' > "$tmp/.env"
+enable_profile "$tmp/.env" tunnel
+grep -qx 'COMPOSE_PROFILES=monitor,tunnel' "$tmp/.env"
 rm -rf "$tmp"
 
 note "the stack validates with every profile enabled"

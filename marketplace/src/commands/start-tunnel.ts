@@ -6,7 +6,7 @@
 
 import type { Hex } from "viem"
 import type { Reader } from "../chain.ts"
-import { KIND, alive, attrAddr, byKind, creator, decodeAgreement, decodeListing } from "../records.ts"
+import { KIND, alive, attrAddr, byKind, creator, decodeAgreement, decodeListing, oldest } from "../records.ts"
 import { signToken } from "../token.ts"
 
 const DEFAULT_TUNNEL_PORT = 7000
@@ -27,16 +27,14 @@ export type Outcome = { written: Record<string, string> } | { refused: string }
 export async function startTunnel(o: StartTunnel): Promise<Outcome> {
   const head = await o.reader.head()
 
-  const agreement = (
-    await o.reader.query(byKind(KIND.agreement, creator(o.lb), attrAddr("provider", o.me), alive(head)))
-  ).map(decodeAgreement)[0]
+  const agreements = await o.reader.query(byKind(KIND.agreement, creator(o.lb), attrAddr("provider", o.me), alive(head)))
+  const agreement = oldest(agreements.map(decodeAgreement))
   if (!agreement) {
     return refuse(o, "you have no agreement yet. Post an offer with post-offer, then check status; the load balancer answers within minutes.")
   }
 
-  const listings = (await o.reader.query(byKind(KIND.listing, creator(o.lb), alive(head)))).map(decodeListing)
-  listings.sort((a, b) => (a.expiresAt < b.expiresAt ? -1 : 1))
-  const listing = listings[0]
+  const listings = await o.reader.query(byKind(KIND.listing, creator(o.lb), alive(head)))
+  const listing = oldest(listings.map(decodeListing))
   if (!listing) {
     return refuse(o, `the load balancer's listing is gone from chain ${o.reader.chainId}; it is not running.`)
   }

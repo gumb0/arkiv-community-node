@@ -17,6 +17,7 @@ import {
   decodeOffer,
   decodeReceipt,
   offerRecord,
+  oldest,
 } from "../src/records.ts"
 
 const LISTING = `0x${"a1".repeat(32)}` as Hex
@@ -36,6 +37,7 @@ function entity(fields: { key: Hex; expiresAt: bigint; attributes: Record<string
   return new Entity({
     key: fields.key,
     creator: LB,
+    createdAt: 100n,
     expiresAt: fields.expiresAt,
     attributes: fields.attributes as Attributes,
     payload: stringToBytes(JSON.stringify(fields.payload)),
@@ -80,6 +82,7 @@ describe("the load balancer's records", () => {
       }),
     )
     equal(listing.key, LISTING)
+    equal(listing.createdAt, 100n)
     equal(listing.weiPerCall, 1_000_000_000_000_000n)
     equal(listing.tunnelServer, "203.0.113.10:7000")
     equal(listing.maxProviders, 100)
@@ -163,8 +166,17 @@ describe("the load balancer's records", () => {
   })
 
   it("a record without the attribute or the payload is an error, not a guess", () => {
-    throws(() => decodeAgreement(new Entity({ key: LISTING, expiresAt: 1n, attributes: {}, payload: stringToBytes("{}") })), /provider/)
-    throws(() => decodeListing(new Entity({ key: LISTING, expiresAt: 1n, attributes: {} })), /payload/)
+    throws(() => decodeAgreement(new Entity({ key: LISTING, createdAt: 1n, expiresAt: 1n, attributes: {}, payload: stringToBytes("{}") })), /provider/)
+    throws(() => decodeListing(new Entity({ key: LISTING, createdAt: 1n, expiresAt: 1n, attributes: {} })), /payload/)
+  })
+
+  it("the oldest is by creation block, not by expiry", () => {
+    // The kept record is refreshed, so its expiry is the later one.
+    const kept = { key: LISTING, createdAt: 100n, expiresAt: 9000n }
+    const extra = { key: `0x${"a2".repeat(32)}` as Hex, createdAt: 200n, expiresAt: 5000n }
+    equal(oldest([extra, kept]), kept)
+    equal(oldest([kept, extra]), kept)
+    equal(oldest([]), undefined)
   })
 })
 

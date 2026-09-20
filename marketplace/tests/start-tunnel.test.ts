@@ -22,6 +22,7 @@ function record(k: Hex, kind: string, attributes: Record<string, unknown>, paylo
   return new Entity({
     key: k,
     creator: LB,
+    createdAt: 100n,
     expiresAt: 5000n,
     attributes: { kind: str(kind), v: i32(1), ...attributes } as Attributes,
     payload: stringToBytes(JSON.stringify(payload)),

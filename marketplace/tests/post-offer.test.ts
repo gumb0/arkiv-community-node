@@ -21,18 +21,19 @@ const node: NodeFacts = {
   syncing: false,
 }
 
-function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n): Entity {
+function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n): Entity {
   return new Entity({
     key: k,
     creator: LB,
+    createdAt,
     expiresAt,
     attributes: { kind: str(kind), v: i32(1), ...attributes } as Attributes,
     payload: stringToBytes(JSON.stringify(payload)),
   })
 }
 
-const listing = (k = LISTING, expiresAt = 5000n) =>
-  record(k, KIND.listing, {}, { wei_per_call: "1000000000000000", tunnel_server: "203.0.113.10:7000", max_providers: 100 }, expiresAt)
+const listing = (k = LISTING, createdAt = 100n, expiresAt = 5000n) =>
+  record(k, KIND.listing, {}, { wei_per_call: "1000000000000000", tunnel_server: "203.0.113.10:7000", max_providers: 100 }, expiresAt, createdAt)
 const myAgreement = () => record(AGREEMENT, KIND.agreement, { provider: addr(ME), offer: key(OFFER) }, { wei_per_call: "1", remote_port: 20007 })
 const myOffer = () => record(OFFER, KIND.offer, { lb_listing: key(LISTING) }, { specs: node.specs })
 
@@ -69,9 +70,10 @@ describe("post-offer", () => {
     match(lines.join("\n"), /Slots: 3 of 100 taken/)
   })
 
-  it("points at the oldest listing when there are several", async () => {
+  it("points at the oldest listing when there are several, whatever their expiry", async () => {
+    // The one in use is refreshed, so its expiry is the later one.
     const other = `0x${"a2".repeat(32)}` as Hex
-    const chain = fakeChain({ listing: [listing(other, 9000n), listing(LISTING, 5000n)] })
+    const chain = fakeChain({ listing: [listing(other, 200n, 5000n), listing(LISTING, 100n, 9000n)] })
     await run(chain)
     deepEqual((chain.created[0]?.record.attributes as { lb_listing: unknown }).lb_listing, key(LISTING))
   })

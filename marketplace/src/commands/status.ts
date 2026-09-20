@@ -15,6 +15,7 @@ import {
   decodeListing,
   decodeOffer,
   decodeReceipt,
+  oldest,
 } from "../records.ts"
 
 /** The chain's block time, for turning a block count into a wait. */
@@ -39,9 +40,8 @@ export async function status(o: Status): Promise<void> {
     `Key: ${o.me}, ${formatEther(await o.reader.balance(o.me))} GLM for gas on the Arkiv chain`,
   )
 
-  const listings = (await o.reader.query(byKind(KIND.listing, creator(o.lb), alive(head)))).map(decodeListing)
-  listings.sort((a, b) => (a.expiresAt < b.expiresAt ? -1 : 1))
-  const listing = listings[0]
+  const listings = await o.reader.query(byKind(KIND.listing, creator(o.lb), alive(head)))
+  const listing = oldest(listings.map(decodeListing))
   if (!listing) {
     o.print(`Load balancer: no listing from ${o.lb} on chain ${o.reader.chainId}`)
   } else {
@@ -54,9 +54,8 @@ export async function status(o: Status): Promise<void> {
   const offer = (await o.reader.query(byKind(KIND.offer, creator(o.me), alive(head)))).map(decodeOffer)[0]
   o.print(offer ? `Offer: ${offer.key}, expires ${left(offer.expiresAt)}` : "Offer: none")
 
-  const agreement = (
-    await o.reader.query(byKind(KIND.agreement, creator(o.lb), attrAddr("provider", o.me), alive(head)))
-  ).map(decodeAgreement)[0]
+  const agreements = await o.reader.query(byKind(KIND.agreement, creator(o.lb), attrAddr("provider", o.me), alive(head)))
+  const agreement = oldest(agreements.map(decodeAgreement))
   o.print(
     agreement
       ? `Agreement: ${agreement.key}, tunnel port ${agreement.remotePort}, ${formatEther(agreement.weiPerCall)} GLM per request, expires ${left(agreement.expiresAt)}`
@@ -94,7 +93,8 @@ export async function status(o: Status): Promise<void> {
     return
   }
   const total = receipts.reduce((sum, r) => sum + r.amountWei, 0n)
-  const last = receipts[receipts.length - 1]!
+  // The newest by creation block; a page's own order promises nothing.
+  const last = receipts.reduce((newest, r) => (r.createdAt > newest.createdAt ? r : newest))
   o.print(
     `Payouts: ${receipts.length} receipt${receipts.length === 1 ? "" : "s"}, ${formatEther(total)} GLM in total; last transfer ${last.payout.tx} on chain ${last.payout.chainId}`,
   )

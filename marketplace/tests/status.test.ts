@@ -19,10 +19,11 @@ const COUNTER_OPEN = `0x${"c1".repeat(32)}` as Hex
 const COUNTER_CLOSED = `0x${"c2".repeat(32)}` as Hex
 const COUNTER_PAID = `0x${"c3".repeat(32)}` as Hex
 
-function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n): Entity {
+function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n): Entity {
   return new Entity({
     key: k,
     creator: LB,
+    createdAt,
     expiresAt,
     attributes: { kind: str(kind), v: i32(1), ...attributes } as Attributes,
     payload: stringToBytes(JSON.stringify(payload)),

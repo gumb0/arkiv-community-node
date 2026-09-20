@@ -38,7 +38,14 @@ export async function connectReader(rpcUrl: string): Promise<Reader> {
     query: async (text) => {
       const page = await client.query(text, {
         limit: PAGE,
-        select: { key: true, creator: true, expiresAt: true, payload: true, attributes: true },
+        select: {
+          key: true,
+          creator: true,
+          createdAt: true,
+          expiresAt: true,
+          payload: true,
+          attributes: true,
+        },
       })
       return page.entities
     },

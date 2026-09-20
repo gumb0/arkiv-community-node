@@ -16,6 +16,7 @@ import {
   decodeListing,
   decodeOffer,
   offerRecord,
+  oldest,
 } from "../records.ts"
 
 export const OFFER_DAYS = 1
@@ -40,9 +41,8 @@ export async function postOffer(o: PostOffer): Promise<Outcome> {
 
   // Several listings: the oldest is the one in use, the one offers have
   // been pointing at the longest.
-  const listings = (await o.reader.query(byKind(KIND.listing, creator(o.lb), alive(head)))).map(decodeListing)
-  listings.sort((a, b) => (a.expiresAt < b.expiresAt ? -1 : 1))
-  const listing = listings[0]
+  const listings = await o.reader.query(byKind(KIND.listing, creator(o.lb), alive(head)))
+  const listing = oldest(listings.map(decodeListing))
   if (!listing) {
     return refuse(
       o,
@@ -50,9 +50,10 @@ export async function postOffer(o: PostOffer): Promise<Outcome> {
     )
   }
 
-  const agreement = (
-    await o.reader.query(byKind(KIND.agreement, creator(o.lb), attrAddr("provider", o.me), alive(head)))
-  ).map(decodeAgreement)[0]
+  // Two records for one provider can exist for a while; the oldest is
+  // the one in force.
+  const agreements = await o.reader.query(byKind(KIND.agreement, creator(o.lb), attrAddr("provider", o.me), alive(head)))
+  const agreement = oldest(agreements.map(decodeAgreement))
   if (agreement) {
     return refuse(
       o,

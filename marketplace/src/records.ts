@@ -52,8 +52,28 @@ function expiresAt(entity: Entity): bigint {
   return entity.expiresAt
 }
 
+function createdAt(entity: Entity): bigint {
+  if (entity.createdAt === undefined) {
+    throw new Error(`record ${entity.key} came without its creation block`)
+  }
+  return entity.createdAt
+}
+
+/**
+ * The oldest of several records of one kind, by creation block. Not by
+ * expiry: a record that is refreshed moves its expiry, a creation
+ * block never moves. A page's own order promises nothing.
+ */
+export function oldest<T extends { createdAt: bigint }>(records: T[]): T | undefined {
+  return records.reduce<T | undefined>(
+    (found, record) => (found === undefined || record.createdAt < found.createdAt ? record : found),
+    undefined,
+  )
+}
+
 export type Listing = {
   key: Hex
+  createdAt: bigint
   expiresAt: bigint
   weiPerCall: bigint
   tunnelServer: string
@@ -64,6 +84,7 @@ export function decodeListing(entity: Entity): Listing {
   const payload = payloadJson(entity)
   return {
     key: entity.key as Hex,
+    createdAt: createdAt(entity),
     expiresAt: expiresAt(entity),
     weiPerCall: BigInt(payload.wei_per_call as string),
     tunnelServer: payload.tunnel_server as string,
@@ -93,6 +114,7 @@ export function decodeOffer(entity: Entity): Offer {
 
 export type Agreement = {
   key: Hex
+  createdAt: bigint
   expiresAt: bigint
   provider: Hex
   offer: Hex
@@ -104,6 +126,7 @@ export function decodeAgreement(entity: Entity): Agreement {
   const payload = payloadJson(entity)
   return {
     key: entity.key as Hex,
+    createdAt: createdAt(entity),
     expiresAt: expiresAt(entity),
     provider: attribute(entity, "provider", "addr") as Hex,
     offer: attribute(entity, "offer", "key") as Hex,
@@ -160,6 +183,7 @@ export function decodeCounter(entity: Entity): Counter {
 
 export type Receipt = {
   key: Hex
+  createdAt: bigint
   counter: Hex
   provider: Hex
   agreement: Hex
@@ -173,6 +197,7 @@ export function decodeReceipt(entity: Entity): Receipt {
   const payout = payload.payout as { chain_id: number; tx: string }
   return {
     key: entity.key as Hex,
+    createdAt: createdAt(entity),
     counter: attribute(entity, "counter", "key") as Hex,
     provider: attribute(entity, "provider", "addr") as Hex,
     agreement: payload.agreement as Hex,

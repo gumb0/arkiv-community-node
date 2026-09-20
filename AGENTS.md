@@ -44,7 +44,13 @@ sysadmins.
 - `tests/ci.sh` is the entire test suite, runnable locally; it must pass
   before committing. CI runs the same script — do not add checks to the
   workflow directly.
-- Provider tooling is TypeScript on the official Arkiv SDK, run in a container
-  so operators never install Node on the host.
+- The marketplace commands (`marketplace/`, run through `marketplace.sh`)
+  are TypeScript on the official Arkiv SDK, run in a container so operators
+  never install Node on the host. `records.ts` is the one place a record's
+  shape is spelled; the load balancer is a counterparty whose records the
+  commands read and write, never something this repo describes or depends
+  on. The commands are tested over a fake chain (`marketplace/tests/`); the
+  wrapper's `.env` merge is tested by `tests/ci.sh`, which also builds the
+  image.
 - Prose (README, comments) targets non-native readers: simple words, short
   sentences, no informal jargon.

@@ -57,6 +57,7 @@ running its infrastructure. The audience sets the constraints:
 | `status.sh` | Chain-level truth on demand, including a comparison against the official RPC; operator-invoked, separate from the health badges |
 | `healthchecks/*.sh` | The badge predicates, running inside the containers on local data only ([health model](#4-health-model)) |
 | `tunnel/`, `frpc.toml` (generated) | The optional tunnel client: a locally built image and its rendered config ([the tunnel](#6-the-tunnel-optional)) |
+| `marketplace/`, `marketplace.sh` | Joining the community RPC marketplace, one command per step, each run in a container from the stack: the provider key, the offer, the status, and the tunnel settings signed from the agreement (README, "Joining the marketplace") |
 
 ## 3. Configuration model
 

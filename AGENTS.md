@@ -49,8 +49,11 @@ sysadmins.
   never install Node on the host. `records.ts` is the one place a record's
   shape is spelled; the load balancer is a counterparty whose records the
   commands read and write, never something this repo describes or depends
-  on. The commands are tested over a fake chain (`marketplace/tests/`); the
-  wrapper's `.env` merge is tested by `tests/ci.sh`, which also builds the
-  image.
+  on, and the settle key is the counterparty that writes the receipts. The
+  addresses of both are network values shipped in
+  `marketplace/addresses.json` and keyed by chain id, like genesis and
+  bootnodes; `.env` overrides them for a private deployment. The commands
+  are tested over a fake chain (`marketplace/tests/`); the wrapper's `.env`
+  merge is tested by `tests/ci.sh`, which also builds the image.
 - Prose (README, comments) targets non-native readers: simple words, short
   sentences, no informal jargon.

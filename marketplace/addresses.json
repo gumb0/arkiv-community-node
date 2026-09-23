@@ -1,6 +1,7 @@
 {
   "7738577": {
     "name": "tiramisu",
-    "lb": "0xCA4B166EE155Cb2816Dc25f94Dc1fD102a26c997"
+    "lb": "0xCA4B166EE155Cb2816Dc25f94Dc1fD102a26c997",
+    "settle": "0x411E31d7eBbfd636Af234954db5f598Cd80a878C"
   }
 }

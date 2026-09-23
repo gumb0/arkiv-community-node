@@ -12,11 +12,12 @@ import { lbAddress, settleAddress } from "../src/addresses.ts"
 // The file the container ships, next to this package's src/.
 const SHIPPED = fileURLToPath(new URL("../addresses.json", import.meta.url))
 const LB = "0xCA4B166EE155Cb2816Dc25f94Dc1fD102a26c997"
+const SETTLE = "0x411E31d7eBbfd636Af234954db5f598Cd80a878C"
 
 describe("the shipped addresses", () => {
-  it("name the load balancer for tiramisu and no settle key yet", () => {
+  it("name the load balancer and the settle key for tiramisu", () => {
     equal(lbAddress(7738577, SHIPPED, undefined), LB)
-    equal(settleAddress(7738577, SHIPPED, undefined), undefined)
+    equal(settleAddress(7738577, SHIPPED, undefined), SETTLE)
   })
 
   it("refuse a chain nobody ships an address for, naming the override", () => {
@@ -29,10 +30,19 @@ describe("the shipped addresses", () => {
     equal(settleAddress(1, SHIPPED, LB.toLowerCase()), LB)
   })
 
-  it("read a settle address once one is shipped", () => {
+  it("read a settle address in whatever case it is shipped", () => {
     const dir = mkdtempSync(join(tmpdir(), "addresses-"))
     const file = join(dir, "addresses.json")
-    writeFileSync(file, JSON.stringify({ "7": { lb: LB, settle: LB.toLowerCase() } }))
-    equal(settleAddress(7, file, undefined), LB)
+    writeFileSync(file, JSON.stringify({ "7": { lb: LB, settle: SETTLE.toLowerCase() } }))
+    equal(settleAddress(7, file, undefined), SETTLE)
+  })
+
+  it("has none for a chain that ships only a load balancer", () => {
+    // Payouts start later than the marketplace does: a provider's
+    // status says so rather than showing nothing.
+    const dir = mkdtempSync(join(tmpdir(), "addresses-"))
+    const file = join(dir, "addresses.json")
+    writeFileSync(file, JSON.stringify({ "7": { lb: LB } }))
+    equal(settleAddress(7, file, undefined), undefined)
   })
 })

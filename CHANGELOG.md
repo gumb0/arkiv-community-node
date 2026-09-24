@@ -5,7 +5,7 @@ same for every release: `git pull` in this clone, then `./setup.sh`.
 An "Upgrade notes" line appears only when a release needs more than
 that.
 
-## Unreleased
+## v0.2.0
 
 - `marketplace.sh`: joining the community RPC marketplace, one command
   per step, each run in a container from the stack (the `marketplace`
@@ -21,8 +21,10 @@ that.
   - `start-tunnel` signs the agreement id with the key, writes the
     tunnel settings into `.env` and starts the tunnel.
 
-  The load balancer's address ships in `marketplace/addresses.json`,
-  per chain; `LB_ADDRESS` in `.env` overrides it.
+  The two addresses the records are trusted by, the load balancer's
+  and the settle key's that writes the payout receipts, ship in
+  `marketplace/addresses.json` per chain; `LB_ADDRESS` and
+  `SETTLE_ADDRESS` in `.env` override them.
 - The tunnel is admitted by the signed token, not by a shared
   password: `TUNNEL_AUTH_TOKEN` is gone, and `TUNNEL_SERVER_PORT`,
   `TUNNEL_AGREEMENT` and `TUNNEL_TOKEN` join the tunnel settings, all

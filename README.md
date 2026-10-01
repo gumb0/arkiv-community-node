@@ -22,8 +22,6 @@ checks, a status script, and a one-command setup.
   endpoints — published by the network operator. During the current
   phase, access is granted by the operator; keep your copy as a git
   clone so it can be updated.
-- Access to the network's container registry, if it is credentialed
-  (`docker login` before setup).
 
 ## Quickstart
 

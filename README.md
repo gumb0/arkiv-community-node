@@ -97,7 +97,9 @@ at build). It connects out to the tunnel server with a token signed by
 your provider key; your RPC then answers on that server at the port
 your agreement assigns. Nothing on your own machine is opened to the
 internet, and the tunnel survives restarts on either side without your
-help.
+help. The token is written into `.env` and the rendered tunnel config;
+anyone who has it can connect a tunnel as your node and serve in your
+name, so keep those files as private as the key.
 
 If the tunnel server turns the client away, the reason is in the
 client's log (`docker compose logs tunnel`), in plain words: the

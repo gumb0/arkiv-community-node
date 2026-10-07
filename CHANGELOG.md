@@ -5,6 +5,13 @@ same for every release: `git pull` in this clone, then `./setup.sh`.
 An "Upgrade notes" line appears only when a release needs more than
 that.
 
+## v0.2.1
+
+- README: the node images are public, so no registry login is needed
+  before `./setup.sh`; and the tunnel token in `.env` and the rendered
+  tunnel config admits a tunnel as this node, so those files are as
+  private as the key.
+
 ## v0.2.0
 
 - `marketplace.sh`: joining the community RPC marketplace, one command

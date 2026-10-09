@@ -44,10 +44,11 @@ export function settlePreviousAddresses(
   file: string,
   override = process.env.SETTLE_PREVIOUS_ADDRESSES,
 ): Hex[] {
-  const listed =
-    override !== undefined
-      ? override.split(",")
-      : ((JSON.parse(readFileSync(file, "utf8")) as Shipped)[String(chainId)]?.settle_previous ?? [])
+  // Unset and empty are the same: compose passes an unset variable as
+  // an empty string.
+  const listed = override
+    ? override.split(",")
+    : ((JSON.parse(readFileSync(file, "utf8")) as Shipped)[String(chainId)]?.settle_previous ?? [])
   return listed
     .map((entry) => entry.trim())
     .filter((entry) => entry !== "")

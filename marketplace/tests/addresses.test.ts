@@ -48,7 +48,11 @@ describe("the shipped addresses", () => {
 
   it("take an override before the shipped list, comma-separated", () => {
     deepEqual(settlePreviousAddresses(7738577, SHIPPED, `${LB.toLowerCase()}, ${SETTLE}`), [LB, SETTLE])
-    deepEqual(settlePreviousAddresses(7738577, SHIPPED, ""), [], "set to nothing is none")
+    // Compose passes an unset variable as an empty string.
+    const dir = mkdtempSync(join(tmpdir(), "addresses-"))
+    const file = join(dir, "addresses.json")
+    writeFileSync(file, JSON.stringify({ "7": { lb: LB, settle: SETTLE, settle_previous: [LB] } }))
+    deepEqual(settlePreviousAddresses(7, file, ""), [LB], "empty is unset, the shipped list stands")
   })
 
   it("has none for a chain that ships only a load balancer", () => {

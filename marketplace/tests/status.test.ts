@@ -19,10 +19,10 @@ const COUNTER_OPEN = `0x${"c1".repeat(32)}` as Hex
 const COUNTER_CLOSED = `0x${"c2".repeat(32)}` as Hex
 const COUNTER_PAID = `0x${"c3".repeat(32)}` as Hex
 
-function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n): Entity {
+function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n, creator: Hex = LB): Entity {
   return new Entity({
     key: k,
-    creator: LB,
+    creator,
     createdAt,
     expiresAt,
     attributes: { kind: str(kind), v: i32(1), ...attributes } as Attributes,
@@ -32,7 +32,7 @@ function record(k: Hex, kind: string, attributes: Record<string, unknown>, paylo
 
 const rows: Rows = {
   listing: [record(LISTING, KIND.listing, {}, { wei_per_call: "1000000000000000", tunnel_server: "203.0.113.10:7000", max_providers: 100 })],
-  offer: [record(OFFER, KIND.offer, { lb_listing: key(LISTING) }, { specs: {} }, 1000n + 1800n)],
+  offer: [record(OFFER, KIND.offer, { lb_listing: key(LISTING) }, { specs: {} }, 1000n + 1800n, 100n, ME)],
   agreement: [record(AGREEMENT, KIND.agreement, { provider: addr(ME), offer: key(OFFER) }, { wei_per_call: "1000000000000000", remote_port: 20007 }, 1000n + 129600n)],
   counter: [
     record(COUNTER_OPEN, KIND.counter, { agreement: key(AGREEMENT), provider: addr(ME), state: str("open") }, { count: 48213, wei_per_call: "1000000000000000", opened_block: 900 }),
@@ -43,7 +43,7 @@ const rows: Rows = {
     record(`0x${"e1".repeat(32)}` as Hex, KIND.receipt, { counter: key(COUNTER_PAID), provider: addr(ME) }, {
       agreement: AGREEMENT, count: 250, wei_per_call: "1000000000000000", amount_wei: "250000000000000000",
       payout: { chain_id: 560048, tx: "0x925d33c7" },
-    }),
+    }, 5000n, 100n, SETTLE),
   ],
   taken: 7,
 }
@@ -52,9 +52,9 @@ type Tunnel = { agreement?: string; port?: number } | undefined
 
 const TUNNEL: Tunnel = { agreement: AGREEMENT, port: 20007 }
 
-async function lines(rows: Rows, settle: Hex | undefined, tunnel: Tunnel): Promise<string[]> {
+async function lines(rows: Rows, settle: Hex | undefined, tunnel: Tunnel, settlePrevious: Hex[] = []): Promise<string[]> {
   const out: string[] = []
-  await status({ reader: fakeChain(rows).reader, lb: LB, settle, me: ME, tunnel, print: (line) => out.push(line) })
+  await status({ reader: fakeChain(rows).reader, lb: LB, settle, settlePrevious, me: ME, tunnel, print: (line) => out.push(line) })
   return out
 }
 
@@ -100,6 +100,29 @@ describe("status", () => {
     const out = await lines({ ...rows, receipt: [] }, SETTLE, TUNNEL)
     equal(out[6], "Awaiting payout: 2 closed records, 350 requests")
     equal(out[7], "Payouts: none yet")
+  })
+
+  it("counts a receipt of a previous settle key as a payout, and a stranger's for nothing", async () => {
+    // The settle key was rotated: the old key's receipts still say what
+    // was paid. A receipt anyone else wrote says nothing.
+    const previous = "0x8888888888888888888888888888888888888888" as Hex
+    const stranger = "0x9999999999999999999999999999999999999999" as Hex
+    const byPrevious = record(`0x${"e2".repeat(32)}` as Hex, KIND.receipt, { counter: key(COUNTER_CLOSED), provider: addr(ME) }, {
+      agreement: AGREEMENT, count: 100, wei_per_call: "1000000000000000", amount_wei: "100000000000000000",
+      payout: { chain_id: 560048, tx: "0x0ddba11" },
+    }, 5000n, 200n, previous)
+    const byStranger = record(`0x${"e3".repeat(32)}` as Hex, KIND.receipt, { counter: key(COUNTER_CLOSED), provider: addr(ME) }, {
+      agreement: AGREEMENT, count: 100, wei_per_call: "1000000000000000", amount_wei: "100000000000000000",
+      payout: { chain_id: 560048, tx: "0xbad" },
+    }, 5000n, 300n, stranger)
+    const withPrevious = { ...rows, receipt: [...rows.receipt!, byPrevious, byStranger] }
+
+    const out = await lines(withPrevious, SETTLE, TUNNEL, [previous])
+    equal(out[6], "Awaiting payout: nothing")
+    equal(out[7], "Payouts: 2 receipts, 0.35 GLM in total; last transfer 0x0ddba11 on chain 560048")
+
+    const without = await lines(withPrevious, SETTLE, TUNNEL)
+    equal(without[6], "Awaiting payout: 1 closed record, 100 requests", "an unlisted key's receipt is nobody's")
   })
 
   it("words a wait", () => {

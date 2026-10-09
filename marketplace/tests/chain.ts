@@ -12,8 +12,9 @@ type Kind = keyof typeof KIND
 
 /**
  * What the fake answers with: the entities of each kind a test sets
- * (an empty page for the rest), the key's balance, and `taken`, the
- * count of live agreements, which the commands show as "N of M slots".
+ * (an empty page for the rest), narrowed to the creator the query
+ * names, the key's balance, and `taken`, the count of live
+ * agreements, which the commands show as "N of M slots".
  */
 export type Rows = Partial<Record<Kind, Entity[]>> & { balance?: bigint; taken?: number }
 
@@ -24,8 +25,11 @@ export function fakeChain(rows: Rows, head = 1000n) {
     head: async () => head,
     balance: async () => rows.balance ?? 10n ** 18n,
     query: async (text) => {
+      const creator = /\$creator = addr\((0x[0-9a-f]{40})\)/.exec(text)?.[1]
       for (const [name, kind] of Object.entries(KIND)) {
-        if (text.includes(`str('${kind}')`)) return rows[name as Kind] ?? []
+        if (!text.includes(`str('${kind}')`)) continue
+        const page = rows[name as Kind] ?? []
+        return creator ? page.filter((row) => row.creator?.toLowerCase() === creator) : page
       }
       throw new Error(`unexpected query ${text}`)
     },

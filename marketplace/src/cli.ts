@@ -4,7 +4,7 @@
 import { existsSync } from "node:fs"
 import { writeFile } from "node:fs/promises"
 import type { Hex } from "viem"
-import { lbAddress, settleAddress } from "./addresses.ts"
+import { lbAddress, settleAddress, settlePreviousAddresses } from "./addresses.ts"
 import { connectReader, connectWriter } from "./chain.ts"
 import { createKeyCommand } from "./commands/create-key.ts"
 import { postOffer } from "./commands/post-offer.ts"
@@ -72,6 +72,7 @@ async function statusCommand(): Promise<void> {
     reader,
     lb: lbAddress(reader.chainId, ADDRESSES),
     settle: settleAddress(reader.chainId, ADDRESSES),
+    settlePrevious: settlePreviousAddresses(reader.chainId, ADDRESSES),
     me,
     tunnel: tunnelSettings(),
     print: (line) => console.log(line),

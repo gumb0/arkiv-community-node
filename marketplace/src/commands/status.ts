@@ -26,6 +26,8 @@ export type Status = {
   lb: Hex
   /** Unset while no payouts are made on this chain. */
   settle: Hex | undefined
+  /** Earlier settle keys: their receipts are payouts too. */
+  settlePrevious: Hex[]
   me: Hex
   /** What the tunnel is configured for, from .env; unset before start-tunnel ran. */
   tunnel: { agreement?: string; port?: number } | undefined
@@ -89,9 +91,13 @@ export async function status(o: Status): Promise<void> {
       : "Counting: no open record",
   )
 
-  const receipts = o.settle
-    ? (await o.reader.query(byKind(KIND.receipt, creator(o.settle), attrAddr("provider", o.me)))).map(decodeReceipt)
-    : []
+  // One read per settle address, each by its creator: a receipt anyone
+  // else wrote is nobody's payout.
+  const receipts: ReturnType<typeof decodeReceipt>[] = []
+  for (const payer of o.settle ? [o.settle, ...o.settlePrevious] : []) {
+    const page = await o.reader.query(byKind(KIND.receipt, creator(payer), attrAddr("provider", o.me)))
+    receipts.push(...page.map(decodeReceipt))
+  }
   const paid = new Set(receipts.map((r) => r.counter))
   const unpaid = counters.filter((c) => c.state === "closed" && !paid.has(c.key))
   const unpaidCount = unpaid.reduce((sum, c) => sum + c.count, 0)

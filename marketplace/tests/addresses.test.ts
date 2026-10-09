@@ -5,9 +5,9 @@ import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { strictEqual as equal, throws } from "node:assert/strict"
+import { deepStrictEqual as deepEqual, strictEqual as equal, throws } from "node:assert/strict"
 import { describe, it } from "node:test"
-import { lbAddress, settleAddress } from "../src/addresses.ts"
+import { lbAddress, settleAddress, settlePreviousAddresses } from "../src/addresses.ts"
 
 // The file the container ships, next to this package's src/.
 const SHIPPED = fileURLToPath(new URL("../addresses.json", import.meta.url))
@@ -35,6 +35,20 @@ describe("the shipped addresses", () => {
     const file = join(dir, "addresses.json")
     writeFileSync(file, JSON.stringify({ "7": { lb: LB, settle: SETTLE.toLowerCase() } }))
     equal(settleAddress(7, file, undefined), SETTLE)
+  })
+
+  it("ship the previous settle addresses, none for tiramisu today", () => {
+    deepEqual(settlePreviousAddresses(7738577, SHIPPED, undefined), [])
+    const dir = mkdtempSync(join(tmpdir(), "addresses-"))
+    const file = join(dir, "addresses.json")
+    writeFileSync(file, JSON.stringify({ "7": { lb: LB, settle: SETTLE, settle_previous: [LB.toLowerCase()] } }))
+    deepEqual(settlePreviousAddresses(7, file, undefined), [LB], "checksummed")
+    deepEqual(settlePreviousAddresses(1, file, undefined), [], "none for an unknown chain")
+  })
+
+  it("take an override before the shipped list, comma-separated", () => {
+    deepEqual(settlePreviousAddresses(7738577, SHIPPED, `${LB.toLowerCase()}, ${SETTLE}`), [LB, SETTLE])
+    deepEqual(settlePreviousAddresses(7738577, SHIPPED, ""), [], "set to nothing is none")
   })
 
   it("has none for a chain that ships only a load balancer", () => {

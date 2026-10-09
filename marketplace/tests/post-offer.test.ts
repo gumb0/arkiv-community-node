@@ -21,10 +21,10 @@ const node: NodeFacts = {
   syncing: false,
 }
 
-function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n): Entity {
+function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n, creator: Hex = LB): Entity {
   return new Entity({
     key: k,
-    creator: LB,
+    creator,
     createdAt,
     expiresAt,
     attributes: { kind: str(kind), v: i32(1), ...attributes } as Attributes,
@@ -35,7 +35,7 @@ function record(k: Hex, kind: string, attributes: Record<string, unknown>, paylo
 const listing = (k = LISTING, createdAt = 100n, expiresAt = 5000n) =>
   record(k, KIND.listing, {}, { wei_per_call: "1000000000000000", tunnel_server: "203.0.113.10:7000", max_providers: 100 }, expiresAt, createdAt)
 const myAgreement = () => record(AGREEMENT, KIND.agreement, { provider: addr(ME), offer: key(OFFER) }, { wei_per_call: "1", remote_port: 20007 })
-const myOffer = () => record(OFFER, KIND.offer, { lb_listing: key(LISTING) }, { specs: node.specs })
+const myOffer = () => record(OFFER, KIND.offer, { lb_listing: key(LISTING) }, { specs: node.specs }, 5000n, 100n, ME)
 
 async function run(chain: ReturnType<typeof fakeChain>, facts = node) {
   const lines: string[] = []

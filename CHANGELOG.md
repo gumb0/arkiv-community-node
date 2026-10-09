@@ -5,6 +5,14 @@ same for every release: `git pull` in this clone, then `./setup.sh`.
 An "Upgrade notes" line appears only when a release needs more than
 that.
 
+## Unreleased
+
+- `marketplace.sh status`: payouts made by an earlier settle key count,
+  after a rotation of that key. The previous settle addresses ship in
+  `marketplace/addresses.json` next to the current one; none for
+  tiramisu today. `SETTLE_PREVIOUS_ADDRESSES` in `.env` overrides
+  them.
+
 ## v0.2.1
 
 - README: the node images are public, so no registry login is needed

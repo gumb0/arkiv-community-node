@@ -1,14 +1,18 @@
-// The two addresses the records are trusted by: the load balancer's,
-// which writes the listing, the agreements and the counts, and the
-// settle key's, which writes the receipts. Network values shipped with
+// The addresses the records are trusted by: the load balancer's,
+// which writes the listing, the agreements and the counts, the settle
+// key's, which writes the receipts, and the earlier settle keys',
+// whose receipts still say what was paid. Network values shipped with
 // the distribution and keyed by chain id, like genesis and bootnodes;
-// LB_ADDRESS and SETTLE_ADDRESS in .env override them, for a private
-// deployment.
+// LB_ADDRESS, SETTLE_ADDRESS and SETTLE_PREVIOUS_ADDRESSES in .env
+// override them, for a private deployment.
 
 import { readFileSync } from "node:fs"
 import { getAddress, type Hex } from "viem"
 
-type Shipped = Record<string, { name?: string; lb?: string; settle?: string }>
+type Shipped = Record<
+  string,
+  { name?: string; lb?: string; settle?: string; settle_previous?: string[] }
+>
 
 export function lbAddress(chainId: number, file: string, override = process.env.LB_ADDRESS): Hex {
   if (override) return getAddress(override)
@@ -32,4 +36,20 @@ export function settleAddress(
   const shipped = JSON.parse(readFileSync(file, "utf8")) as Shipped
   const settle = shipped[String(chainId)]?.settle
   return settle ? getAddress(settle) : undefined
+}
+
+/** The addresses of earlier settle keys, after a rotation; none most of the time. */
+export function settlePreviousAddresses(
+  chainId: number,
+  file: string,
+  override = process.env.SETTLE_PREVIOUS_ADDRESSES,
+): Hex[] {
+  const listed =
+    override !== undefined
+      ? override.split(",")
+      : ((JSON.parse(readFileSync(file, "utf8")) as Shipped)[String(chainId)]?.settle_previous ?? [])
+  return listed
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== "")
+    .map((entry) => getAddress(entry))
 }

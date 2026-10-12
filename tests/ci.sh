@@ -17,6 +17,21 @@ NETWORK_DIR=tests/fixture-network ./setup.sh --render-only
 note "validate the merged stack"
 docker compose config -q
 
+note "a changed genesis, or a changed genesis time, is a re-genesis"
+# Over a state directory of its own, so a checkout's real records are
+# neither read nor touched.
+state_bak=$(mktemp -d)
+[ -d .setup-state ] && mv .setup-state "$state_bak/kept"
+mkdir .setup-state
+printf '%s\n' 0000000000000000000000000000000000000000000000000000000000000000 > .setup-state/genesis.sha256
+NETWORK_DIR=tests/fixture-network ./setup.sh --render-only | grep "genesis has changed" >/dev/null
+rm .setup-state/genesis.sha256
+printf '%s\n' 1600000000 > .setup-state/genesis-time
+NETWORK_DIR=tests/fixture-network ./setup.sh --render-only | grep "genesis time has changed" >/dev/null
+rm -rf .setup-state
+[ -d "$state_bak/kept" ] && mv "$state_bak/kept" .setup-state
+rm -rf "$state_bak"
+
 note "rendered output carries the fixture values"
 grep -q 'fixture-el:ci' compose.override.yaml
 grep -q 'fixture-cl:ci' compose.override.yaml

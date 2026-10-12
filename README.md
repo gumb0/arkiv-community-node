@@ -237,8 +237,10 @@ and restarts the containers if anything changed. An unchanged re-run
 restarts nothing.
 
 When the network is **re-genesised** (a devnet restart from a new
-genesis), the old chain data belongs to a dead chain. Setup detects this
-and asks before wiping; the node then resyncs from scratch.
+genesis), the old chain data belongs to a dead chain. Setup detects
+this, from a changed `genesis.json` or a changed genesis time in
+`config.yaml` (a wipe that keeps the execution genesis changes only the
+second), and asks before wiping; the node then resyncs from scratch.
 
 **Careful with `down -v`:** `docker compose down` stops and removes the
 containers but keeps the chain data — everything resumes where it left

@@ -78,8 +78,10 @@ the clone take effect only through a setup run — which re-verifies first.
 
 Three change detectors decide what a setup run does:
 
-- **If the genesis differs** from the one the chain data was synced from —
-  a re-genesis, the old data belongs to a dead chain — setup wipes the
+- **If the genesis differs** from the one the chain data was synced from,
+  the execution genesis by its hash or the consensus genesis by its time
+  in `config.yaml` — a re-genesis, the old data belongs to a dead chain —
+  setup wipes the
   chain data (asking for confirmation first). Declining stops the run with
   nothing modified.
 - **If the artifacts' checksum file differs** from the last applied copy,

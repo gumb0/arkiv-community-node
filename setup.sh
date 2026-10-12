@@ -103,15 +103,25 @@ is this really a network artifacts directory? Check NETWORK_DIR in .env."
 mkdir -p .setup-state
 
 # Re-genesis detection: a changed genesis means the existing chain data
-# belongs to a different chain.
+# belongs to a different chain. Two files carry the genesis: the
+# execution genesis, hashed whole, and the consensus genesis time in
+# config.yaml, which is what a wipe that keeps genesis.json changes.
 genesis_sha=$(sha256sum "$NETWORK_DIR/genesis.json" | cut -d' ' -f1)
+genesis_time=$(sed -n 's/^MIN_GENESIS_TIME:[[:space:]]*//p' "$NETWORK_DIR/config.yaml" 2>/dev/null | tr -d "\"' \r")
 stored_genesis_file=.setup-state/genesis.sha256
+stored_time_file=.setup-state/genesis-time
+changed=""
 if [ -f "$stored_genesis_file" ] && [ "$(cat "$stored_genesis_file")" != "$genesis_sha" ]; then
+  changed="genesis"
+elif [ -f "$stored_time_file" ] && [ "$(cat "$stored_time_file")" != "$genesis_time" ]; then
+  changed="genesis time"
+fi
+if [ -n "$changed" ]; then
   if [ "$RENDER_ONLY" = 1 ]; then
-    note "The network's genesis has changed. A normal setup run will offer to"
+    note "The network's $changed has changed. A normal setup run will offer to"
     note "wipe the chain data."
   else
-    note "The network's genesis has changed — the existing chain data must be"
+    note "The network's $changed has changed — the existing chain data must be"
     note "wiped, and the node will resync from scratch."
     if [ "$ASSUME_YES" = 1 ]; then
       reply=y
@@ -121,7 +131,7 @@ if [ -f "$stored_genesis_file" ] && [ "$(cat "$stored_genesis_file")" != "$genes
     fi
     case "$reply" in
       y|Y) docker compose down -v
-           rm -f "$stored_genesis_file"
+           rm -f "$stored_genesis_file" "$stored_time_file"
            note "Chain data wiped.";;
       *)   note "Keeping the old chain data — nothing else was changed."
            note "The node cannot follow the new chain until it resyncs:"
@@ -130,11 +140,13 @@ if [ -f "$stored_genesis_file" ] && [ "$(cat "$stored_genesis_file")" != "$genes
     esac
   fi
 fi
-# The record says which genesis the chain data was synced from, so it is
-# written when there is no data yet — a first run, or just after a wipe.
-# A declined wipe leaves the old record, and is detected again next time.
-if [ ! -f "$stored_genesis_file" ] && [ "$RENDER_ONLY" != 1 ]; then
-  printf '%s\n' "$genesis_sha" > "$stored_genesis_file"
+# The records say which genesis the chain data was synced from, so each
+# is written when it is missing: a first run, or just after a wipe. A
+# declined wipe leaves the old records, and is detected again next
+# time.
+if [ "$RENDER_ONLY" != 1 ]; then
+  [ -f "$stored_genesis_file" ] || printf '%s\n' "$genesis_sha" > "$stored_genesis_file"
+  [ -f "$stored_time_file" ] || printf '%s\n' "$genesis_time" > "$stored_time_file"
 fi
 
 # Drift check: our compose translation follows the upstream run-node.sh.

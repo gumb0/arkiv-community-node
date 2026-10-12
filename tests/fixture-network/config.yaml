@@ -1,0 +1,5 @@
+# The consensus config the network publishes; only the genesis time
+# matters to setup.sh.
+PRESET_BASE: 'mainnet'
+MIN_GENESIS_TIME: 1700000000
+GENESIS_FORK_VERSION: 0x10000000

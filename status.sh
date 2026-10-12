@@ -200,7 +200,7 @@ else
   else
     printf '%s%s chain id:   %s — EXPECTED %s: wrong network!%s\n' "$red" "$g_fail" "$(hex2dec "$chain_hex")" "$CHAIN_ID" "$reset"
     printf '              check NETWORK_DIR in .env; to switch networks:\n'
-    printf '              docker compose down -v && ./setup.sh\n'
+    printf '              ./setup.sh --wipe\n'
   fi
   printf '  local head: #%s %s (age %ss)\n' "$local_head" "$local_hash" "$age"
   printf '  execution:  peers %s\n' "$el_peers"
@@ -238,7 +238,7 @@ else
         false)   printf '%s%s reference:  head #%s — HASH MISMATCH at #%s — local %s vs reference %s%s\n' "$red" "$g_fail" "$ref_head" "$min" "$local_min_hash" "$ref_hash" "$reset"
                  printf '              a brief fork at the head can cause this — re-run to check\n'
                  printf '              if it persists, this node followed a different chain and must\n'
-                 printf '              resync: docker compose down -v && ./setup.sh --refresh\n';;
+                 printf '              resync: ./setup.sh --refresh --wipe\n';;
         unknown) printf '%s%s reference:  head #%s — hash comparison unavailable (request failed)%s\n' "$yellow" "$g_warn" "$ref_head" "$reset";;
       esac
       if [ "$hashes_match" = true ]; then

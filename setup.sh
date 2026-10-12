@@ -8,7 +8,7 @@ note(){ printf '%s\n' "$*"; }
 
 usage(){
   cat <<'EOF'
-Usage: ./setup.sh [--refresh] [--render-only] [--yes]
+Usage: ./setup.sh [--refresh] [--render-only] [--yes] [--wipe]
 
 Prepares and starts an Arkiv community node. Operator values come from
 .env, or from environment variables, which win over the file. NETWORK_DIR
@@ -20,20 +20,23 @@ stack. Re-running is safe and is also the update procedure.
   --refresh      git pull the artifacts repo first
   --render-only  stop after rendering, start nothing
   --yes          answer yes to the chain-data wipe prompt (see below)
+  --wipe         wipe the chain data first and resync from scratch
 
 When the network's genesis changes (a re-genesis), the old chain data is
 useless and must be wiped before the node can follow the new chain. This
 script detects the change and asks before wiping; it never wipes on its
-own.
+own. A wipe removes the two chain volumes and nothing else: the
+monitor's data stays.
 EOF
 }
 
-REFRESH=0 RENDER_ONLY=0 ASSUME_YES=0
+REFRESH=0 RENDER_ONLY=0 ASSUME_YES=0 WIPE=0
 for arg in "$@"; do
   case "$arg" in
     --refresh)     REFRESH=1;;
     --render-only) RENDER_ONLY=1;;
     --yes)         ASSUME_YES=1;;
+    --wipe)        WIPE=1;;
     -h|--help)     usage; exit 0;;
     *)             usage >&2; die "unexpected argument: $arg";;
   esac
@@ -101,6 +104,31 @@ is this really a network artifacts directory? Check NETWORK_DIR in .env."
   || die "artifact checksum verification failed in $NETWORK_DIR"
 
 mkdir -p .setup-state
+# The records of which genesis the chain data was synced from; what
+# the detector below compares, and what a wipe clears.
+stored_genesis_file=.setup-state/genesis.sha256
+stored_time_file=.setup-state/genesis-time
+
+# The chain data is the two chain volumes; the monitor keeps its own
+# and is not the dead chain's. They are found by compose's labels, so
+# the project name is whatever compose uses.
+wipe_chain_data(){
+  local project volume
+  project="${COMPOSE_PROJECT_NAME:-$(sed -n 's/^name: *//p' compose.yaml)}"
+  docker compose down
+  for volume in el-data cl-data; do
+    docker volume ls -q \
+      --filter "label=com.docker.compose.project=$project" \
+      --filter "label=com.docker.compose.volume=$volume" \
+      | xargs -r docker volume rm >/dev/null
+  done
+  rm -f "$stored_genesis_file" "$stored_time_file"
+  note "Chain data wiped."
+}
+if [ "$WIPE" = 1 ]; then
+  [ "$RENDER_ONLY" = 1 ] && die "--wipe and --render-only do not go together"
+  wipe_chain_data
+fi
 
 # Re-genesis detection: a changed genesis means the existing chain data
 # belongs to a different chain. Two files carry the genesis: the
@@ -108,8 +136,6 @@ mkdir -p .setup-state
 # config.yaml, which is what a wipe that keeps genesis.json changes.
 genesis_sha=$(sha256sum "$NETWORK_DIR/genesis.json" | cut -d' ' -f1)
 genesis_time=$(sed -n 's/^MIN_GENESIS_TIME:[[:space:]]*//p' "$NETWORK_DIR/config.yaml" 2>/dev/null | tr -d "\"' \r")
-stored_genesis_file=.setup-state/genesis.sha256
-stored_time_file=.setup-state/genesis-time
 changed=""
 if [ -f "$stored_genesis_file" ] && [ "$(cat "$stored_genesis_file")" != "$genesis_sha" ]; then
   changed="genesis"
@@ -130,12 +156,10 @@ if [ -n "$changed" ]; then
       read -r reply || reply=n   # if no terminal to ask: default to no
     fi
     case "$reply" in
-      y|Y) docker compose down -v
-           rm -f "$stored_genesis_file" "$stored_time_file"
-           note "Chain data wiped.";;
+      y|Y) wipe_chain_data;;
       *)   note "Keeping the old chain data — nothing else was changed."
            note "The node cannot follow the new chain until it resyncs:"
-           note "  docker compose down -v && ./setup.sh"
+           note "  ./setup.sh --wipe"
            exit 1;;
     esac
   fi

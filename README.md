@@ -242,11 +242,12 @@ this, from a changed `genesis.json` or a changed genesis time in
 `config.yaml` (a wipe that keeps the execution genesis changes only the
 second), and asks before wiping; the node then resyncs from scratch.
 
-**Careful with `down -v`:** `docker compose down` stops and removes the
-containers but keeps the chain data — everything resumes where it left
-off. `docker compose down -v` **deletes the chain data**; the next start
-resyncs from genesis, which takes hours. Use it only when the output of
-`setup.sh` or `status.sh` tells you to.
+**Resyncing from scratch:** `./setup.sh --wipe` removes the two chain
+volumes, keeps the monitor's data, and starts the node again, which
+resyncs from genesis and takes hours. Use it only when the output of
+`setup.sh` or `status.sh` tells you to. `docker compose down` on its
+own stops the containers and keeps everything; `docker compose down
+-v` deletes **every** volume, the monitor's settings included.
 
 ## Where the data lives
 

@@ -123,6 +123,11 @@ describe("status", () => {
 
     const without = await lines(withPrevious, SETTLE, TUNNEL)
     equal(without[6], "Awaiting payout: 1 closed record, 100 requests", "an unlisted key's receipt is nobody's")
+
+    // A list that repeats an address, or names the current key, counts
+    // each receipt once.
+    const repeated = await lines(withPrevious, SETTLE, TUNNEL, [previous, previous, SETTLE])
+    equal(repeated[7], out[7])
   })
 
   it("words a wait", () => {

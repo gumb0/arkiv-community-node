@@ -92,9 +92,12 @@ export async function status(o: Status): Promise<void> {
   )
 
   // One read per settle address, each by its creator: a receipt anyone
-  // else wrote is nobody's payout.
+  // else wrote is nobody's payout. Each address once, so a list that
+  // repeats one, or names the current key, does not count its receipts
+  // twice.
   const receipts: ReturnType<typeof decodeReceipt>[] = []
-  for (const payer of o.settle ? [o.settle, ...o.settlePrevious] : []) {
+  const payers = o.settle ? new Set<Hex>([o.settle, ...o.settlePrevious].map((a) => a.toLowerCase() as Hex)) : new Set<Hex>()
+  for (const payer of payers) {
     const page = await o.reader.query(byKind(KIND.receipt, creator(payer), attrAddr("provider", o.me)))
     receipts.push(...page.map(decodeReceipt))
   }

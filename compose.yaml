@@ -115,6 +115,23 @@ services:
       TUNNEL_AGREEMENT: ${TUNNEL_AGREEMENT:-}
       TUNNEL_REMOTE_PORT: ${TUNNEL_REMOTE_PORT:-}
 
+  # The snapshot restore (snapshot/restore.sh; README, "First sync").
+  # Never started by `up`: setup.sh runs it once, when both chain
+  # volumes are empty, and the container exits with it.
+  snapshot:
+    profiles: ["snapshot"]
+    build: ./snapshot
+    volumes:
+      - el-data:/el
+      - cl-data:/cl
+      - ./artifacts:/gen:ro
+      - ./.setup-state:/state
+    environment:
+      NETWORK: ${NET_NAME:-}
+      SNAPSHOTS_URL: ${SNAPSHOTS_URL:-https://testnet.snapshots.arkiv.network}
+      EL_IMAGE: ${EL_IMAGE:-}
+      CL_IMAGE: ${CL_IMAGE:-}
+
   # Optional: on-box monitoring (Uptime Kuma) — alerts the operator when a
   # badge goes bad, instead of waiting to be looked at. Off unless the
   # monitor profile is enabled (COMPOSE_PROFILES in .env). Suggested

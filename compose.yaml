@@ -124,13 +124,19 @@ services:
     volumes:
       - el-data:/el
       - cl-data:/cl
-      - ./artifacts:/gen:ro
-      - ./.setup-state:/state
+      # The two directories are variables for the gate's test alone,
+      # which restores a fixture into throwaway volumes; setup.sh
+      # leaves them at their defaults.
+      - ${ARTIFACTS_DIR:-./artifacts}:/gen:ro
+      - ${SETUP_STATE_DIR:-./.setup-state}:/state
     environment:
       NETWORK: ${NET_NAME:-}
       SNAPSHOTS_URL: ${SNAPSHOTS_URL:-https://testnet.snapshots.arkiv.network}
       EL_IMAGE: ${EL_IMAGE:-}
       CL_IMAGE: ${CL_IMAGE:-}
+    # So the gate's test can serve its fixture from the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # Optional: on-box monitoring (Uptime Kuma) — alerts the operator when a
   # badge goes bad, instead of waiting to be looked at. Off unless the

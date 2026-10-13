@@ -288,6 +288,48 @@ fi
 
 docker compose config -q || die "the rendered stack does not validate"
 docker compose pull
+
+# A node with no chain data yet starts from the network's published
+# snapshot, near the head, instead of syncing from genesis. Both chain
+# volumes empty is the signal; one holding data and the other not is
+# neither a fresh node nor a running one. FROM_GENESIS=1 skips the
+# step. The restore runs in the snapshot service (snapshot/restore.sh).
+if [ "${FROM_GENESIS:-}" != 1 ]; then
+  export NET_NAME EL_IMAGE CL_IMAGE
+  docker compose --profile snapshot build -q snapshot
+  filled=$(docker compose --profile snapshot run --rm --no-deps --entrypoint sh snapshot \
+    -c '[ -n "$(ls -A /el)" ] && printf el; [ -n "$(ls -A /cl)" ] && printf cl; true')
+  case "$filled" in
+    elcl) ;;
+    "")
+      note "Both chain volumes are empty: restoring the network's snapshot."
+      set +e
+      docker compose --profile snapshot run --rm --no-deps snapshot
+      restored=$?
+      set -e
+      case "$restored" in
+        0) ;;
+        3) note "No snapshot to restore. The node can sync from genesis instead, which"
+           note "takes hours; or retry later, when the network has published one."
+           if [ "$ASSUME_YES" = 1 ]; then
+             reply=y
+           else
+             printf 'Sync from genesis now? [y/N] '
+             read -r reply || reply=n
+           fi
+           case "$reply" in
+             y|Y) ;;
+             *)   die "nothing started. Later: ./setup.sh again; or FROM_GENESIS=1 ./setup.sh";;
+           esac;;
+        *) die "the snapshot restore failed (see above). Both chain volumes are empty
+again; ./setup.sh retries, and FROM_GENESIS=1 ./setup.sh syncs from genesis instead";;
+      esac;;
+    *)
+      die "the $filled chain volume holds data and the other is empty, which is
+neither a fresh node nor a synced one. Run ./setup.sh --wipe: it empties both,
+and the node is restored from the snapshot";;
+  esac
+fi
 if [ "$tunnel_on" = 1 ]; then
   # `up` builds the tunnel image only when it is missing — it never rebuilds
   # because the Dockerfile changed (e.g. an frp version bump arriving with a

@@ -17,8 +17,8 @@ NETWORK_DIR=tests/fixture-network ./setup.sh --render-only
 note "validate the merged stack"
 docker compose config -q
 
-note "the snapshot restore image builds"
-docker compose --profile snapshot build -q snapshot
+note "the snapshot restore, over a fixture served from this host"
+tests/snapshot-restore.sh
 
 note "a changed genesis, or a changed genesis time, is a re-genesis"
 # Over a state directory of its own, so a checkout's real records are

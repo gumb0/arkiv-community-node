@@ -29,6 +29,12 @@ that.
   `marketplace/addresses.json` next to the current one; none for
   tiramisu today. `SETTLE_PREVIOUS_ADDRESSES` in `.env` overrides
   them.
+- `setup.sh` rebuilds the marketplace commands' image. Before, an
+  update left `marketplace.sh` running the old code until the image
+  was removed.
+
+Upgrade notes: run `./setup.sh` after this update, even if nothing
+else changed, so the marketplace commands run the new code.
 
 ## v0.2.1
 

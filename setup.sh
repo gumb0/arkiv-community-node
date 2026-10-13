@@ -342,6 +342,9 @@ if [ "$tunnel_on" = 1 ]; then
   # repo update). Build explicitly; with nothing changed this is a cached no-op.
   docker compose build tunnel
 fi
+# The marketplace commands run from their own image, which marketplace.sh
+# reuses as it is; nothing else rebuilds it after a repo update.
+docker compose --profile marketplace build -q marketplace
 if [ "$recreate" = 1 ]; then
   docker compose up -d --force-recreate
 else

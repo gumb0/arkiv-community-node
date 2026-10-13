@@ -58,7 +58,12 @@ manifest "$el_sha" "$cl_sha"
 
 python3 -m http.server "$port" --bind 0.0.0.0 --directory "$work/serve" >/dev/null 2>&1 &
 server=$!
-sleep 1
+# Up to ten seconds for the server to answer, rather than a fixed wait
+# a slow runner outlasts.
+for _ in $(seq 1 20); do
+  curl -sf "http://127.0.0.1:$port/fixture/latest.json" >/dev/null && break
+  sleep 0.5
+done
 
 restore(){ docker compose --profile snapshot run --rm --no-deps snapshot; }
 in_volume(){ # in_volume <el|cl|state> <sh command> — run in the container, in that mount

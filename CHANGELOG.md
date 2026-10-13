@@ -7,6 +7,10 @@ that.
 
 ## Unreleased
 
+- The tunnel token is readable by its owner alone: with the tunnel on,
+  `setup.sh` narrows `.env` to 0600 and writes the rendered tunnel
+  config as 0600. An existing deployment's next `./setup.sh` narrows
+  both.
 - The first sync restores the network's published snapshot (README,
   "First sync"): when both chain volumes are empty, `setup.sh` runs the
   restore in a small image of its own, every layer verified against the

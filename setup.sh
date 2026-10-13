@@ -231,6 +231,12 @@ note "Rendered compose.override.yaml."
 
 if [ "$tunnel_on" = 1 ]; then
   export TUNNEL_SERVER_ADDR TUNNEL_SERVER_PORT TUNNEL_REMOTE_PORT TUNNEL_AGREEMENT TUNNEL_TOKEN
+  # .env and the config carry the admission token, so both are readable
+  # by their owner alone. The config is narrowed before it is written, so
+  # the token is never readable by others.
+  [ -f .env ] && chmod 600 .env
+  touch frpc.toml
+  chmod 600 frpc.toml
   # shellcheck disable=SC2016  # Same as above: the single quotes are the point.
   envsubst '${TUNNEL_SERVER_ADDR} ${TUNNEL_SERVER_PORT} ${TUNNEL_REMOTE_PORT} ${TUNNEL_AGREEMENT} ${TUNNEL_TOKEN}' \
     < templates/frpc.toml.tmpl > frpc.toml

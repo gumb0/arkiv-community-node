@@ -1,7 +1,8 @@
 // The tunnel token: the agreement id signed by the provider key as an
 // EIP-191 personal message. The tunnel server admits the client whose
-// token was made by the agreement's provider, so the token is not a
-// secret, and nobody without the key can make one.
+// token was made by the agreement's provider. Nobody without the key can
+// make one, but anyone who has a copy can use it while the agreement
+// lives, so it is kept as private as the key.
 
 import { privateKeyToAccount } from "viem/accounts"
 import type { Hex } from "viem"

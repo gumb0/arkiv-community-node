@@ -52,6 +52,28 @@ grep -q 'remotePort = 18545' frpc.toml
 grep -q 'metadatas.agreement = "0x01"' frpc.toml
 grep -q 'metadatas.token = "0xdeadbeef"' frpc.toml
 
+note "the rendered tunnel config is readable by its owner alone"
+# It holds the admission token. A loose umask, and a file left behind by
+# an earlier render with loose permissions, must both end at 0600.
+chmod 664 frpc.toml
+(
+  umask 0002
+  NETWORK_DIR=tests/fixture-network COMPOSE_PROFILES=tunnel \
+    TUNNEL_SERVER_ADDR=203.0.113.7 TUNNEL_SERVER_PORT=7000 TUNNEL_REMOTE_PORT=18545 \
+    TUNNEL_AGREEMENT=0x01 TUNNEL_TOKEN=0xdeadbeef \
+    ./setup.sh --render-only
+)
+[ "$(stat -c %a frpc.toml)" = 600 ] || { echo "frpc.toml is $(stat -c %a frpc.toml), not 600" >&2; exit 1; }
+rm frpc.toml
+(
+  umask 0002
+  NETWORK_DIR=tests/fixture-network COMPOSE_PROFILES=tunnel \
+    TUNNEL_SERVER_ADDR=203.0.113.7 TUNNEL_SERVER_PORT=7000 TUNNEL_REMOTE_PORT=18545 \
+    TUNNEL_AGREEMENT=0x01 TUNNEL_TOKEN=0xdeadbeef \
+    ./setup.sh --render-only
+)
+[ "$(stat -c %a frpc.toml)" = 600 ] || { echo "a new frpc.toml is $(stat -c %a frpc.toml), not 600" >&2; exit 1; }
+
 note "marketplace.sh merges the tunnel settings into .env"
 tmp=$(mktemp -d)
 printf '%s\n' 'NETWORK_DIR=/nets/x' '#TUNNEL_REMOTE_PORT=' 'TUNNEL_TOKEN=old' > "$tmp/.env"

@@ -78,6 +78,14 @@ manifest "$el_sha" "000000000000000000000000000000000000000000000000000000000000
 if restore 2>/dev/null; then echo "a wrong hash was accepted" >&2; exit 1; fi
 [ -z "$(in_volume el 'ls -A')" ] && [ -z "$(in_volume cl 'ls -A')" ]
 
+note "a layer that is not an archive fails after the other landed; both volumes emptied"
+docker volume rm -f snapshot-test_el-data snapshot-test_cl-data >/dev/null
+printf 'not a gzip\n' > "$work/serve/fixture/run1/cl.tar.gz"
+cl_bytes=$(stat -c %s "$work/serve/fixture/run1/cl.tar.gz")
+manifest "$el_sha" "$(sha256sum "$work/serve/fixture/run1/cl.tar.gz" | cut -d' ' -f1)"
+if restore 2>/dev/null; then echo "a broken archive was accepted" >&2; exit 1; fi
+[ -z "$(in_volume el 'ls -A')" ] && [ -z "$(in_volume cl 'ls -A')" ]
+
 note "a tombstone is 'nothing to restore', exit 3"
 printf '%s\n' '{ "network": "fixture", "wiped": "2026-10-01T10:08:00Z" }' > "$work/serve/fixture/latest.json"
 set +e; restore 2>/dev/null; rc=$?; set -e

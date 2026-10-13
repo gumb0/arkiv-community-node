@@ -27,9 +27,11 @@ set -euo pipefail
 say(){ echo "$(date -u +%FT%TZ) restore: $*" >&2; }
 
 # Anything that goes wrong leaves both datadirs empty: a re-run then
-# starts clean instead of resuming onto half a chain.
+# starts clean instead of resuming onto half a chain. Any failure
+# code, not only 1: a corrupt stream fails in tar with 2, and set -e
+# exits with whatever the failing command returned.
 cleanup(){
-  if [ "$1" -eq 1 ] && { [ -n "$(ls -A /el)" ] || [ -n "$(ls -A /cl)" ]; }; then
+  if [ "$1" -ne 0 ] && [ "$1" -ne 3 ] && { [ -n "$(ls -A /el)" ] || [ -n "$(ls -A /cl)" ]; }; then
     say "failed — emptying both datadirs so a re-run starts clean"
     find /el /cl -mindepth 1 -delete
   fi
@@ -224,6 +226,7 @@ block=$(jq -r .head.block "$manifest")
 say "snapshot $run: block $block"
 restore_layer el /el
 restore_layer cl /cl
-# The manifest is kept for status.sh to say where the node started.
-cp "$manifest" /state/snapshot.json
+# The manifest is kept for status.sh to say where the node started; a
+# copy that fails must not undo the restore, so it only says so.
+cp "$manifest" /state/snapshot.json || say "could not keep the manifest in /state; status.sh will not name the snapshot"
 say "restored $NETWORK at block $block from snapshot $run — the node syncs forward from there"

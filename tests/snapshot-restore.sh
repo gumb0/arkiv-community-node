@@ -20,6 +20,9 @@ cleanup(){
   [ -z "${server:-}" ] || kill "$server" 2>/dev/null || true
   docker volume rm -f snapshot-test_el-data snapshot-test_cl-data >/dev/null 2>&1 || true
   docker network rm snapshot-test_default >/dev/null 2>&1 || true
+  # The image is built under this project's name; its layers stay
+  # cached, so the next run rebuilds it in seconds.
+  docker image rm -f snapshot-test-snapshot >/dev/null 2>&1 || true
   rm -rf "$work"
 }
 trap cleanup EXIT

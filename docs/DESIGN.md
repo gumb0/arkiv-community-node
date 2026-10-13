@@ -184,8 +184,9 @@ Design choices:
   `TUNNEL_*` values are operator values in `.env`, written by the
   marketplace command rather than typed, and the client config is
   rendered from a template by `setup.sh` like the rest. The token is a
-  signature, not a secret: it admits only the client of the key that
-  made it.
+  signature that only the key can make, but a copy of it admits a
+  client while the agreement lives, so `.env` and the rendered config
+  are readable by their owner alone.
 - **"Up" does not mean "connected", so the tunnel gets its own badge.** The healthcheck asks the
   client's own local status endpoint whether the proxy is running, and
   `status.sh` reports the same distinction.

@@ -203,6 +203,11 @@ else
     printf '              ./setup.sh --wipe\n'
   fi
   printf '  local head: #%s %s (age %ss)\n' "$local_head" "$local_hash" "$age"
+  # The manifest the first sync restored from, kept by the restore.
+  if [ -f .setup-state/snapshot.json ]; then
+    printf '  started:    from snapshot %s at block #%s\n' \
+      "$(jfield run < .setup-state/snapshot.json)" "$(jfield block < .setup-state/snapshot.json)"
+  fi
   printf '  execution:  peers %s\n' "$el_peers"
   if [ "$b_syncing" = unknown ]; then
     printf '%s%s beacon:     not answering at %s — is it running? (docker compose ps)%s\n' "$red" "$g_fail" "$CL" "$reset"

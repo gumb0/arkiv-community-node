@@ -93,6 +93,15 @@ Three change detectors decide what a setup run does:
   hand-made translation of that script; after an upstream change, the
   translation needs a human look before it can be trusted again.
 
+One more step runs only when both chain volumes are empty: the first
+sync, which restores the network's published snapshot into them. It is
+a translation of the bootstrap in the operator's script, like the stack
+itself, running in a small image of its own (`snapshot/`) so the host
+needs no tools beyond Docker; the manifest's chain id and genesis time
+are checked against the artifacts, every layer against its hash and
+size, and a failure empties both volumes so the next run starts clean.
+With no snapshot to restore, setup asks before syncing from genesis.
+
 An unchanged re-run passes through all three without touching anything —
 `setup.sh` is convergent, and "re-run setup" is always a safe instruction.
 Profiles converge the same way: a service whose profile was turned off is

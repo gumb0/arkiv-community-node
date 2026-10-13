@@ -38,6 +38,24 @@ configuration from them, and starts the containers. Re-running is safe
 at any time and is also the update procedure. `./setup.sh --help` lists
 the flags.
 
+## First sync
+
+A node with no chain data starts from the network's published
+snapshot, near the chain's head. `setup.sh` does it on its own when
+both chain volumes are empty: it checks the manifest is of this chain,
+prints the size and the free space, then downloads and unpacks each
+layer, verified against the manifest's hash. The clients start after
+it and sync the rest; `./status.sh` says which snapshot the node
+started from.
+
+A failed or damaged download leaves both chain volumes empty, so
+`./setup.sh` again starts clean. With no snapshot to restore, setup
+asks whether to sync from genesis, which takes hours;
+`FROM_GENESIS=1 ./setup.sh` does that without asking. The hashes come
+from the host that serves the snapshot: they catch a damaged download,
+not a wrong snapshot. The node validates the chain forward from it as
+it validates every block.
+
 ## Is it working?
 
 ```bash
@@ -54,7 +72,7 @@ The two health badges make different claims:
 
 | Badge | Meaning | What to do |
 |---|---|---|
-| `starting` | First sync in progress — takes **hours** (the chain syncs from genesis) | Wait; watch progress with `./status.sh` |
+| `starting` | First sync in progress: the rest of the chain after the snapshot, or the whole chain from genesis, which takes **hours** | Wait; watch progress with `./status.sh` |
 | `healthy` | See the table above | Nothing |
 | `unhealthy` | Not serving, or stuck | Check logs; re-run `./setup.sh`; restart is up to you — nothing restarts containers automatically while they stay alive |
 
@@ -275,6 +293,11 @@ the fix. Beyond that:
 
 - **Setup fails at checksum verification** — your artifacts copy is stale
   or half-updated: `git pull` in the artifacts clone and re-run.
+- **"The snapshot restore failed"** — the lines above it name the cause:
+  not enough free space (the restore says what it needs), the endpoint
+  unreachable, or a layer that arrived damaged. Both chain volumes are
+  empty again; fix the cause and run `./setup.sh` again, or
+  `FROM_GENESIS=1 ./setup.sh` to sync from genesis instead.
 - **"The node did not come up"** — setup prints the failing container's
   last log lines; the message is usually explicit. A port already in use
   means another service holds 8545/5052 — change the port in `.env`.
@@ -291,8 +314,6 @@ the fix. Beyond that:
 
 ## Known limitations
 
-- The first sync runs from genesis and takes hours; the consensus badge
-  stays at `starting` the whole time. There is no snapshot download.
 - Nothing restarts an unhealthy-but-alive container automatically; the
   badges are signals for you, not a supervisor.
 - `status.sh` compares hashes at the current head, which can briefly

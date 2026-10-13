@@ -7,6 +7,19 @@ that.
 
 ## Unreleased
 
+- The first sync restores the network's published snapshot (README,
+  "First sync"): when both chain volumes are empty, `setup.sh` runs the
+  restore in a small image of its own, every layer verified against the
+  manifest, and asks before syncing from genesis when there is nothing
+  to restore; `FROM_GENESIS=1` skips it. `status.sh` says which
+  snapshot the node started from.
+- A re-genesis that keeps `genesis.json` is detected: setup records the
+  consensus genesis time beside the genesis hash, and either changing
+  is a re-genesis. An existing deployment's first run records the time
+  quietly.
+- The re-genesis wipe removes the two chain volumes only; the
+  monitor's data stays. `./setup.sh --wipe` runs the same wipe for a
+  resync from scratch, and every hint that said `down -v` says that.
 - `marketplace.sh status`: payouts made by an earlier settle key count,
   after a rotation of that key. The previous settle addresses ship in
   `marketplace/addresses.json` next to the current one; none for

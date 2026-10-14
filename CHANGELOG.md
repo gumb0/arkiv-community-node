@@ -7,6 +7,10 @@ that.
 
 ## Unreleased
 
+- `marketplace.sh status` says when the count was last written ("as
+  of the last write, about 2 hours ago"), and, for a record still at
+  the 0 it was opened with, that requests served since the last write
+  are not in it yet.
 - `marketplace.sh status` says first when the node is still syncing,
   since what it shows may be out of date, and `start-tunnel` with no
   agreement in view says the node may not see it yet rather than

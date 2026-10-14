@@ -90,11 +90,19 @@ export async function status(o: Status): Promise<void> {
     await o.reader.query(byKind(KIND.counter, creator(o.lb), attrAddr("provider", o.me), alive(head)))
   ).map(decodeCounter)
   const open = counters.find((c) => c.state === "open")
-  o.print(
-    open
-      ? `Counting: ${open.count} requests since block ${open.openedBlock} (record ${open.key})`
-      : "Counting: no open record",
-  )
+  if (!open) {
+    o.print("Counting: no open record")
+  } else {
+    const where = `since block ${open.openedBlock}, record ${open.key}`
+    const ago = timeAgo(Number(head - open.updatedAt) * SECONDS_PER_BLOCK)
+    o.print(`Counting: ${open.count} requests as of the last write, ${ago} (${where})`)
+    // The load balancer opens a record at zero and writes the count into
+    // it from time to time: a 0 in a record it has not written since is
+    // no news about the requests served.
+    if (open.count === 0 && open.updatedAt === open.createdAt) {
+      o.print("  The load balancer writes the count to the chain from time to time; requests served since its last write are not in it yet.")
+    }
+  }
 
   // One read per settle address, each by its creator: a receipt anyone
   // else wrote is nobody's payout. Each address once, so a list that
@@ -133,10 +141,19 @@ export async function status(o: Status): Promise<void> {
 
 /** A wait in words: "in about 3 hours", "in about 40 minutes". */
 export function timeLeft(seconds: number): string {
-  if (seconds <= 0) return "now"
+  return seconds <= 0 ? "now" : `in ${about(seconds)}`
+}
+
+/** A time past in words: "about 3 hours ago", "about 40 minutes ago". */
+export function timeAgo(seconds: number): string {
+  return seconds <= 0 ? "just now" : `${about(seconds)} ago`
+}
+
+/** A span in words, rounded to minutes, then hours from two on, then days from two on. */
+function about(seconds: number): string {
   const minutes = Math.round(seconds / 60)
-  if (minutes < 120) return `in about ${minutes} minute${minutes === 1 ? "" : "s"}`
+  if (minutes < 120) return `about ${minutes} minute${minutes === 1 ? "" : "s"}`
   const hours = Math.round(minutes / 60)
-  if (hours < 48) return `in about ${hours} hours`
-  return `in about ${Math.round(hours / 24)} days`
+  if (hours < 48) return `about ${hours} hours`
+  return `about ${Math.round(hours / 24)} days`
 }

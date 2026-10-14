@@ -57,6 +57,13 @@ function createdAt(entity: Entity): bigint {
   return entity.createdAt
 }
 
+function updatedAt(entity: Entity): bigint {
+  if (entity.updatedAt === undefined) {
+    throw new Error(`record ${entity.key} came without the block of its last write`)
+  }
+  return entity.updatedAt
+}
+
 /**
  * The oldest of several records of one kind, by creation block. Not by
  * expiry: a record that is refreshed moves its expiry, a creation
@@ -150,6 +157,9 @@ export function offerRecord(lbListing: Hex, specs: Specs): OfferRecord {
 
 export type Counter = {
   key: Hex
+  createdAt: bigint
+  /** The block of the last write; the creation block until the first one. */
+  updatedAt: bigint
   expiresAt: bigint
   agreement: Hex
   provider: Hex
@@ -168,6 +178,8 @@ export function decodeCounter(entity: Entity): Counter {
   }
   return {
     key: entity.key as Hex,
+    createdAt: createdAt(entity),
+    updatedAt: updatedAt(entity),
     expiresAt: expiresAt(entity),
     agreement: attribute(entity, "agreement", "key") as Hex,
     provider: attribute(entity, "provider", "addr") as Hex,

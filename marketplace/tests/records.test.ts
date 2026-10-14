@@ -38,6 +38,8 @@ function entity(fields: { key: Hex; expiresAt: bigint; attributes: Record<string
     key: fields.key,
     creator: LB,
     createdAt: 100n,
+    // As the node returns it for a record never written since its creation.
+    updatedAt: 100n,
     expiresAt: fields.expiresAt,
     attributes: fields.attributes as Attributes,
     payload: stringToBytes(JSON.stringify(fields.payload)),
@@ -117,6 +119,7 @@ describe("the load balancer's records", () => {
     equal(open.openedBlock, 1204000)
     equal(open.closedBlock, undefined, "absent while open")
     equal(open.agreement, `0x${"9c".repeat(32)}`)
+    equal(open.updatedAt, 100n)
 
     const closed = decodeCounter(
       entity({
@@ -168,6 +171,10 @@ describe("the load balancer's records", () => {
   it("a record without the attribute or the payload is an error, not a guess", () => {
     throws(() => decodeAgreement(new Entity({ key: LISTING, createdAt: 1n, expiresAt: 1n, attributes: {}, payload: stringToBytes("{}") })), /provider/)
     throws(() => decodeListing(new Entity({ key: LISTING, createdAt: 1n, expiresAt: 1n, attributes: {} })), /payload/)
+    const counter = { key: `0x${"c1".repeat(32)}` as Hex, expiresAt: 1n, attributes: { kind: str(KIND.counter), v: i32(1), agreement: key(LISTING), provider: addr(ME), state: str("open") }, payload: { count: 1, wei_per_call: "1", opened_block: 1 } }
+    const unwritten = entity(counter)
+    unwritten.updatedAt = undefined
+    throws(() => decodeCounter(unwritten), /the block of its last write/)
   })
 
   it("the oldest is by creation block, not by expiry", () => {

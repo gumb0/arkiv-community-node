@@ -5,7 +5,7 @@ import { deepStrictEqual as deepEqual, strictEqual as equal, match } from "node:
 import { describe, it } from "node:test"
 import { Entity, addr, i32, key, str, type Attributes } from "@arkiv-network/sdk"
 import { stringToBytes, type Hex } from "viem"
-import { status, timeLeft } from "../src/commands/status.ts"
+import { status, timeAgo, timeLeft } from "../src/commands/status.ts"
 import { KIND } from "../src/records.ts"
 import { fakeChain, type Rows } from "./chain.ts"
 
@@ -19,11 +19,12 @@ const COUNTER_OPEN = `0x${"c1".repeat(32)}` as Hex
 const COUNTER_CLOSED = `0x${"c2".repeat(32)}` as Hex
 const COUNTER_PAID = `0x${"c3".repeat(32)}` as Hex
 
-function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n, creator: Hex = LB): Entity {
+function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n, creator: Hex = LB, updatedAt = createdAt): Entity {
   return new Entity({
     key: k,
     creator,
     createdAt,
+    updatedAt,
     expiresAt,
     attributes: { kind: str(kind), v: i32(1), ...attributes } as Attributes,
     payload: stringToBytes(JSON.stringify(payload)),
@@ -35,7 +36,7 @@ const rows: Rows = {
   offer: [record(OFFER, KIND.offer, { lb_listing: key(LISTING) }, { specs: {} }, 1000n + 1800n, 100n, ME)],
   agreement: [record(AGREEMENT, KIND.agreement, { provider: addr(ME), offer: key(OFFER) }, { wei_per_call: "1000000000000000", remote_port: 20007 }, 1000n + 129600n)],
   counter: [
-    record(COUNTER_OPEN, KIND.counter, { agreement: key(AGREEMENT), provider: addr(ME), state: str("open") }, { count: 48213, wei_per_call: "1000000000000000", opened_block: 900 }),
+    record(COUNTER_OPEN, KIND.counter, { agreement: key(AGREEMENT), provider: addr(ME), state: str("open") }, { count: 48213, wei_per_call: "1000000000000000", opened_block: 900 }, 5000n, 100n, LB, 700n),
     record(COUNTER_CLOSED, KIND.counter, { agreement: key(AGREEMENT), provider: addr(ME), state: str("closed") }, { count: 100, wei_per_call: "1000000000000000", opened_block: 500, closed_block: 900 }),
     record(COUNTER_PAID, KIND.counter, { agreement: key(AGREEMENT), provider: addr(ME), state: str("closed") }, { count: 250, wei_per_call: "1000000000000000", opened_block: 100, closed_block: 500 }),
   ],
@@ -67,7 +68,7 @@ describe("status", () => {
       `Offer: ${OFFER}, expires in about 60 minutes`,
       `Agreement: ${AGREEMENT}, tunnel port 20007, 0.001 GLM per request, expires in about 3 days`,
       "Tunnel: configured for this agreement",
-      `Counting: 48213 requests since block 900 (record ${COUNTER_OPEN})`,
+      `Counting: 48213 requests as of the last write, about 10 minutes ago (since block 900, record ${COUNTER_OPEN})`,
       "Awaiting payout: 1 closed record, 100 requests",
       "Payouts: 1 receipt, 0.25 GLM in total; last transfer 0x925d33c7 on chain 560048",
     ])
@@ -134,6 +135,27 @@ describe("status", () => {
     const out = await lines(rows, SETTLE, TUNNEL, [], true)
     match(out[0]!, /still syncing/)
     deepEqual(out.slice(1), await lines(rows, SETTLE, TUNNEL))
+  })
+
+  it("explains the 0 of a record the load balancer has not written since opening it", async () => {
+    const fresh = record(COUNTER_OPEN, KIND.counter, { agreement: key(AGREEMENT), provider: addr(ME), state: str("open") }, { count: 0, wei_per_call: "1000000000000000", opened_block: 900 }, 5000n, 900n)
+    const out = await lines({ ...rows, counter: [fresh] }, SETTLE, TUNNEL)
+    equal(out[5], `Counting: 0 requests as of the last write, about 3 minutes ago (since block 900, record ${COUNTER_OPEN})`)
+    match(out[6]!, /from time to time/)
+  })
+
+  it("says nothing more about a 0 the load balancer wrote", async () => {
+    const zero = record(COUNTER_OPEN, KIND.counter, { agreement: key(AGREEMENT), provider: addr(ME), state: str("open") }, { count: 0, wei_per_call: "1000000000000000", opened_block: 900 }, 5000n, 900n, LB, 950n)
+    const out = await lines({ ...rows, counter: [zero] }, SETTLE, TUNNEL)
+    match(out[5]!, /^Counting: 0 requests as of the last write/)
+    match(out[6]!, /^Awaiting payout/)
+  })
+
+  it("words a time past", () => {
+    equal(timeAgo(0), "just now")
+    equal(timeAgo(90), "about 2 minutes ago")
+    equal(timeAgo(3 * 3600), "about 3 hours ago")
+    equal(timeAgo(2 * 86400), "about 2 days ago")
   })
 
   it("words a wait", () => {

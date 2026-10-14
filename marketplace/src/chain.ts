@@ -42,6 +42,7 @@ export async function connectReader(rpcUrl: string): Promise<Reader> {
           key: true,
           creator: true,
           createdAt: true,
+          updatedAt: true,
           expiresAt: true,
           payload: true,
           attributes: true,

@@ -147,8 +147,24 @@ nothing is installed on your machine.
    a standard encrypted keystore file. This one key posts your offer,
    signs your tunnel token, and receives your payouts, so keep the file
    and the password. To move payouts out later, import the file into any
-   wallet that reads keystore files. The key needs a little GLM for gas
-   before it can post: get it from the network's faucet at the Arkiv hub.
+   wallet that reads keystore files.
+
+   The key needs a little GLM for gas on the Arkiv chain before it can
+   post. Get it from the faucet at the Arkiv hub,
+   <https://hub.arkiv.network/faucet>:
+
+   - Sign in with any browser wallet. The wallet only signs you in: it
+     does not receive the GLM and needs no funds.
+   - Choose **Use a different address** and paste your provider
+     address. `create-key` printed it; running `./marketplace.sh
+     create-key` again prints it, without the password and without
+     changing anything.
+   - Complete the CAPTCHA and claim once. There is a waiting time
+     between claims.
+
+   Your node shows the new balance once it has synced past the claim
+   (`./marketplace.sh status`, first line). This GLM pays gas on the
+   Arkiv chain only; payouts arrive separately, on the payout chain.
 
 2. **Offer your node.** With the node synced and the key funded:
 

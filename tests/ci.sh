@@ -103,6 +103,34 @@ enable_profile "$tmp/.env" tunnel
 grep -qx 'COMPOSE_PROFILES=monitor,tunnel' "$tmp/.env"
 rm -rf "$tmp"
 
+note "status.sh tells a syncing node from a ready one"
+# status.sh in a directory of its own, over two fake nodes: this node on
+# one port (execution and beacon), the reference on another.
+tmp=$(mktemp -d)
+cp status.sh "$tmp/"
+mkdir "$tmp/.setup-state"
+printf 'OFFICIAL_RPC=http://127.0.0.1:18602\nCHAIN_ID=999999\n' > "$tmp/.setup-state/artifacts.env"
+python3 tests/fake-node.py 18602 1000 >/dev/null 2>&1 & reference=$!
+python3 tests/fake-node.py 18601 100 syncing >/dev/null 2>&1 & local_node=$!
+# A failed check exits the script; the fakes must not outlive it.
+trap 'kill "$reference" "$local_node" 2>/dev/null || true' EXIT
+sleep 1
+status(){ EL_RPC_PORT=18601 CL_HTTP_PORT=18601 COMPOSE_PROFILES='' NO_COLOR=1 "$tmp/status.sh" "$@"; }
+# A healthy sync is no fault, so the exit code is 0, but it is not ready.
+status --json | grep -q '"ok":true'
+status --json | grep -q '"ready":false'
+status > "$tmp/out"
+grep -q 'overall: *SYNCING' "$tmp/out"
+grep -q 'behind the reference by 900 blocks' "$tmp/out"
+kill "$local_node"; wait "$local_node" 2>/dev/null || true
+python3 tests/fake-node.py 18601 1000 >/dev/null 2>&1 & local_node=$!
+sleep 1
+status --json | grep -q '"ready":true'
+status | grep -q 'overall: *READY'
+kill "$local_node" "$reference"; wait 2>/dev/null || true
+trap - EXIT
+rm -rf "$tmp"
+
 note "the stack validates with every profile enabled"
 COMPOSE_PROFILES=tunnel,monitor,marketplace docker compose config -q
 

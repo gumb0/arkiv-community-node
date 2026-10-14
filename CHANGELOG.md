@@ -7,6 +7,10 @@ that.
 
 ## Unreleased
 
+- `status.sh` tells a syncing node from a ready one: its last line
+  says READY, SYNCING, or NEEDS ATTENTION, and `--json` gains `ready`.
+  A healthy sync is still no fault, so the exit code stays 0 while the
+  node catches up.
 - The tunnel token is readable by its owner alone: with the tunnel on,
   `setup.sh` narrows `.env` to 0600 and writes the rendered tunnel
   config as 0600. An existing deployment's next `./setup.sh` narrows

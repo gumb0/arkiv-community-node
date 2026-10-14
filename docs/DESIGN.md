@@ -147,6 +147,10 @@ RPC. Its design rules:
   and the verdict is unaffected. Only local faults (wrong chain, a
   confirmed hash mismatch, a client not answering, a beacon with zero
   peers — new blocks cannot arrive) fail it.
+- **A fault and readiness are two answers.** A healthy sync is no
+  fault, so the exit code stays 0 while the node catches up; the verdict
+  says SYNCING until the beacon node's own view (the consensus badge's
+  three flags) says it is current, and READY after.
 - **A missing comparison is "unknown", never a mismatch.** Hash mismatch is
   the scariest thing the script can say — it must mean exactly that, with
   both hashes printed as evidence.

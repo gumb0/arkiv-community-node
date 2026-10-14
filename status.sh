@@ -15,9 +15,12 @@ is enabled, also checks that the tunnel is up.
 
   --json   one-line JSON instead of the report
 
+The verdict is READY (current and serving), SYNCING (no fault, still
+catching up; post an offer only once it says READY), or NEEDS ATTENTION.
+
 Exit code: 0 = both clients answering, right chain, and matching the
 reference RPC (or reference unreachable — a reference outage is not a local
-problem). 1 = something needs attention.
+problem), READY or SYNCING. 1 = something needs attention.
 EOF
 }
 
@@ -173,10 +176,16 @@ ok=true
 if [ "$tunnel_state" != off ] && [ "$tunnel_state" != running ]; then
   ok=false
 fi
+# Ready to serve current data: no fault, and the beacon node's own view,
+# the same three flags as the consensus badge, says it is current.
+ready=false
+if [ "$ok" = true ] && [ "$b_syncing" = false ] && [ "$b_optimistic" = false ] && [ "$b_el_offline" = false ]; then
+  ready=true
+fi
 
 if [ "$JSON" = 1 ]; then
-  printf '{"ok":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"restarts":{"execution":%s,"consensus":%s},"tunnel":"%s","reference":{"state":"%s","head":%s,"hashes_match":"%s"}}\n' \
-    "$ok" "$chain_ok" "$local_head" "$local_hash" "$age" "$el_peers" \
+  printf '{"ok":%s,"ready":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"restarts":{"execution":%s,"consensus":%s},"tunnel":"%s","reference":{"state":"%s","head":%s,"hashes_match":"%s"}}\n' \
+    "$ok" "$ready" "$chain_ok" "$local_head" "$local_hash" "$age" "$el_peers" \
     "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers" \
     "$el_restarts" "$cl_restarts" \
     "$tunnel_state" "$ref_state" "${ref_head:-null}" "$hashes_match"
@@ -256,6 +265,12 @@ else
     unreachable)
       printf '%s%s reference:  unreachable — local view only (not a local problem)%s\n' "$yellow" "$g_warn" "$reset";;
   esac
-  [ "$ok" = true ] && printf '%s%s overall:    OK%s\n' "$green" "$g_ok" "$reset" || printf '%s%s overall:    NEEDS ATTENTION%s\n' "$red" "$g_fail" "$reset"
+  if [ "$ok" != true ]; then
+    printf '%s%s overall:    NEEDS ATTENTION%s\n' "$red" "$g_fail" "$reset"
+  elif [ "$ready" = true ]; then
+    printf '%s%s overall:    READY%s\n' "$green" "$g_ok" "$reset"
+  else
+    printf '%s%s overall:    SYNCING%s\n' "$yellow" "$g_warn" "$reset"
+  fi
 fi
 [ "$ok" = true ]

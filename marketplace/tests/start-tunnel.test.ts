@@ -33,12 +33,13 @@ const listing = (tunnelServer: string) =>
   record(LISTING, KIND.listing, {}, { wei_per_call: "1", tunnel_server: tunnelServer, max_providers: 100 })
 const agreement = record(AGREEMENT, KIND.agreement, { provider: addr(ME), offer: key(LISTING) }, { wei_per_call: "1", remote_port: 20007 })
 
-async function run(rows: Rows) {
+async function run(rows: Rows, syncing = false) {
   const lines: string[] = []
   let written = ""
   let unlocked = false
   const outcome = await startTunnel({
     reader: fakeChain(rows).reader,
+    syncing,
     lb: LB,
     me: ME,
     privateKey: async () => {
@@ -74,6 +75,19 @@ describe("start-tunnel", () => {
     match(outcome.refused, /no agreement yet/)
     equal(unlocked, false)
     equal(written, "")
+  })
+
+  it("says a syncing node may not see the agreement yet", async () => {
+    // Not "post an offer": the agreement may exist, past what the node has.
+    const { outcome, unlocked } = await run({ listing: [listing("203.0.113.10:7000")] }, true)
+    ok("refused" in outcome)
+    match(outcome.refused, /still syncing/)
+    equal(unlocked, false)
+  })
+
+  it("starts from an agreement a syncing node already sees", async () => {
+    const { outcome } = await run({ listing: [listing("203.0.113.10:7000")], agreement: [agreement] }, true)
+    ok("written" in outcome)
   })
 
   it("refuses when the listing is gone, after the agreement is found", async () => {

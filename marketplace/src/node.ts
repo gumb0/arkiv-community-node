@@ -32,15 +32,21 @@ async function beacon(url: string, path: string): Promise<Record<string, unknown
   return body.data
 }
 
+/** Any of the beacon node's three flags: its view of the chain is not current yet. */
+export async function nodeSyncing(clUrl: string): Promise<boolean> {
+  const syncing = await beacon(clUrl, "/eth/v1/node/syncing")
+  const flag = (name: string) => syncing[name] === true || syncing[name] === "true"
+  return flag("is_syncing") || flag("is_optimistic") || flag("el_offline")
+}
+
 export async function readNode(elUrl: string, clUrl: string): Promise<NodeFacts> {
   const [chainId, head, el, version, syncing] = await Promise.all([
     rpc(elUrl, "eth_chainId"),
     rpc(elUrl, "eth_blockNumber"),
     rpc(elUrl, "web3_clientVersion"),
     beacon(clUrl, "/eth/v1/node/version"),
-    beacon(clUrl, "/eth/v1/node/syncing"),
+    nodeSyncing(clUrl),
   ])
-  const flag = (name: string) => syncing[name] === true || syncing[name] === "true"
   return {
     specs: {
       chain_id: Number(chainId),
@@ -49,6 +55,6 @@ export async function readNode(elUrl: string, clUrl: string): Promise<NodeFacts>
       cl: String(version.version),
       hw: { cpus: cpus().length, mem_gb: Math.round(totalmem() / GIB) },
     },
-    syncing: flag("is_syncing") || flag("is_optimistic") || flag("el_offline"),
+    syncing,
   }
 }

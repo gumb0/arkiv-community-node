@@ -7,6 +7,10 @@ that.
 
 ## Unreleased
 
+- `marketplace.sh status` says first when the node is still syncing,
+  since what it shows may be out of date, and `start-tunnel` with no
+  agreement in view says the node may not see it yet rather than
+  "post an offer".
 - `status.sh` tells a syncing node from a ready one: its last line
   says READY, SYNCING, or NEEDS ATTENTION, and `--json` gains `ready`.
   A healthy sync is still no fault, so the exit code stays 0 while the

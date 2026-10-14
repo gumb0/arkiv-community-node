@@ -52,9 +52,9 @@ type Tunnel = { agreement?: string; port?: number } | undefined
 
 const TUNNEL: Tunnel = { agreement: AGREEMENT, port: 20007 }
 
-async function lines(rows: Rows, settle: Hex | undefined, tunnel: Tunnel, settlePrevious: Hex[] = []): Promise<string[]> {
+async function lines(rows: Rows, settle: Hex | undefined, tunnel: Tunnel, settlePrevious: Hex[] = [], syncing = false): Promise<string[]> {
   const out: string[] = []
-  await status({ reader: fakeChain(rows).reader, lb: LB, settle, settlePrevious, me: ME, tunnel, print: (line) => out.push(line) })
+  await status({ reader: fakeChain(rows).reader, syncing, lb: LB, settle, settlePrevious, me: ME, tunnel, print: (line) => out.push(line) })
   return out
 }
 
@@ -128,6 +128,12 @@ describe("status", () => {
     // each receipt once.
     const repeated = await lines(withPrevious, SETTLE, TUNNEL, [previous, previous, SETTLE])
     equal(repeated[7], out[7])
+  })
+
+  it("says first when the node is still syncing, then everything as usual", async () => {
+    const out = await lines(rows, SETTLE, TUNNEL, [], true)
+    match(out[0]!, /still syncing/)
+    deepEqual(out.slice(1), await lines(rows, SETTLE, TUNNEL))
   })
 
   it("words a wait", () => {

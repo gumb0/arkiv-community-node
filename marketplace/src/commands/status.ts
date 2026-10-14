@@ -23,6 +23,8 @@ const SECONDS_PER_BLOCK = 2
 
 export type Status = {
   reader: Reader
+  /** The node is not current yet: what it shows may be out of date. */
+  syncing: boolean
   lb: Hex
   /** Unset while no payouts are made on this chain. */
   settle: Hex | undefined
@@ -35,6 +37,9 @@ export type Status = {
 }
 
 export async function status(o: Status): Promise<void> {
+  if (o.syncing) {
+    o.print("Your node is still syncing: what follows is what it has seen so far, and may be out of date.")
+  }
   const head = await o.reader.head()
   const left = (expiresAt: bigint) => timeLeft(Number(expiresAt - head) * SECONDS_PER_BLOCK)
 

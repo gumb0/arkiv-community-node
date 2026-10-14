@@ -11,7 +11,7 @@ import { postOffer } from "./commands/post-offer.ts"
 import { startTunnel } from "./commands/start-tunnel.ts"
 import { status } from "./commands/status.ts"
 import { keyAddress, loadKey } from "./keystore.ts"
-import { readNode } from "./node.ts"
+import { nodeSyncing, readNode } from "./node.ts"
 import { askPassword } from "./prompt.ts"
 
 const KEYSTORE = process.env.MARKETPLACE_KEYSTORE ?? "/secrets/provider-key.json"
@@ -56,6 +56,7 @@ async function startTunnelCommand(): Promise<void> {
   const reader = await fromNode(() => connectReader(EL_URL))
   const outcome = await startTunnel({
     reader,
+    syncing: await fromNode(() => nodeSyncing(CL_URL)),
     lb: lbAddress(reader.chainId, ADDRESSES),
     me,
     privateKey: async () => (await loadKey(KEYSTORE, await askPassword("Key password: "))).privateKey,
@@ -70,6 +71,7 @@ async function statusCommand(): Promise<void> {
   const reader = await fromNode(() => connectReader(EL_URL))
   await status({
     reader,
+    syncing: await fromNode(() => nodeSyncing(CL_URL)),
     lb: lbAddress(reader.chainId, ADDRESSES),
     settle: settleAddress(reader.chainId, ADDRESSES),
     settlePrevious: settlePreviousAddresses(reader.chainId, ADDRESSES),

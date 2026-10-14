@@ -10,7 +10,7 @@ checks, a status script, and a one-command setup.
 
 ## Prerequisites
 
-- A Linux x86_64 machine with Docker and the compose plugin
+- A Linux machine, x86_64 or arm64, with Docker and the compose plugin
   (`docker compose version` must work — see the
   [official install guide](https://docs.docker.com/engine/install/)),
   plus `git`, `openssl`, and `envsubst` (Debian/Ubuntu:

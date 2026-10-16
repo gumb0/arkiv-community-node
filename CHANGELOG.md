@@ -7,6 +7,11 @@ that.
 
 ## Unreleased
 
+- The snapshot restore decodes the compression the manifest names,
+  zstd as well as gzip. The network's snapshots are zstd since
+  2026-10-14, and a fresh install's restore failed on them with "tar:
+  invalid magic" (#20). A manifest naming neither is refused before
+  anything is fetched, as the network's own script does.
 - `marketplace.sh status` says when the count was last written ("as
   of the last write, about 2 hours ago"), and, for a record still at
   the 0 it was opened with, that requests served since the last write

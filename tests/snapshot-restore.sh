@@ -27,36 +27,43 @@ cleanup(){
 }
 trap cleanup EXIT
 
-# The fixture: two layers of one file each, and the manifest that
+# The fixture: two layers of one file each, one gzip and one zstd as
+# the network's manifest can name either, and the manifest that
 # describes them the way the network's endpoint does.
-layer(){ # layer <name> <content> — writes <name>.tar.gz, prints "<bytes> <sha256>"
-  local dir="$work/raw/$1" archive="$work/serve/fixture/run1/$1.tar.gz" bytes sha
+layer(){ # layer <name> <content> <gzip|zstd> — writes the archive, prints "<bytes> <sha256>"
+  local dir="$work/raw/$1" archive bytes sha
   mkdir -p "$dir/db"
   printf '%s\n' "$2" > "$dir/db/marker"
-  tar -czf "$archive" -C "$dir" db
+  case "$3" in
+    gzip) archive="$work/serve/fixture/run1/$1.tar.gz"; tar -czf "$archive" -C "$dir" db;;
+    # Written with the 2^27 window the network uses, which the restore
+    # has to match to decode.
+    zstd) archive="$work/serve/fixture/run1/$1.tar.zst"; tar -cf - -C "$dir" db | zstd -q -f --long=27 -o "$archive";;
+  esac
   # The two figures the manifest has to carry for the restore's checks.
   bytes=$(stat -c %s "$archive")
   sha=$(sha256sum "$archive" | cut -d' ' -f1)
   printf '%s %s\n' "$bytes" "$sha"
 }
 # The sizes come from the globals the read lines below set; only the
-# hashes are arguments, since they are what the second scenario changes.
-manifest(){ # manifest <el sha> <cl sha>
+# hashes are arguments, since they are what the second scenario
+# changes, and the compression names, which the last ones change.
+manifest(){ # manifest <el sha> <cl sha> [el compression] [cl compression]
   cat > "$work/serve/fixture/latest.json" <<JSON
 {
   "network": "fixture", "chainId": 999999, "genesisTime": 1700000000,
   "run": "run1", "head": { "slot": 10, "block": 9 },
   "images": { "reth": "$EL_IMAGE", "lighthouse": "$CL_IMAGE" },
   "layers": {
-    "el": { "key": "fixture/run1/el.tar.gz", "rawBytes": 4096, "bytes": $el_bytes, "sha256": "$1" },
-    "cl": { "key": "fixture/run1/cl.tar.gz", "rawBytes": 4096, "bytes": $cl_bytes, "sha256": "$2" }
+    "el": { "key": "fixture/run1/el.tar.gz", "rawBytes": 4096, "bytes": $el_bytes, "sha256": "$1", "compression": "${3:-gzip}" },
+    "cl": { "key": "fixture/run1/cl.tar.zst", "rawBytes": 4096, "bytes": $cl_bytes, "sha256": "$2", "compression": "${4:-zstd}" }
   }
 }
 JSON
 }
 mkdir -p "$work/serve/fixture/run1"
-read -r el_bytes el_sha < <(layer el "execution chain data")
-read -r cl_bytes cl_sha < <(layer cl "consensus chain data")
+read -r el_bytes el_sha < <(layer el "execution chain data" gzip)
+read -r cl_bytes cl_sha < <(layer cl "consensus chain data" zstd)
 manifest "$el_sha" "$cl_sha"
 
 python3 -m http.server "$port" --bind 0.0.0.0 --directory "$work/serve" >/dev/null 2>&1 &
@@ -73,7 +80,7 @@ in_volume(){ # in_volume <el|cl|state> <sh command> — run in the container, in
   docker compose --profile snapshot run --rm --no-deps --entrypoint sh snapshot -c "cd /$1 && $2"
 }
 
-note "a snapshot is restored into both volumes, and the manifest kept"
+note "a snapshot is restored into both volumes, gzip and zstd layers alike, and the manifest kept"
 docker compose --profile snapshot build -q snapshot
 restore
 [ "$(in_volume el 'cat db/marker')" = "execution chain data" ]
@@ -88,10 +95,20 @@ if restore 2>/dev/null; then echo "a wrong hash was accepted" >&2; exit 1; fi
 
 note "a layer that is not an archive fails after the other landed; both volumes emptied"
 docker volume rm -f snapshot-test_el-data snapshot-test_cl-data >/dev/null
-printf 'not a gzip\n' > "$work/serve/fixture/run1/cl.tar.gz"
-cl_bytes=$(stat -c %s "$work/serve/fixture/run1/cl.tar.gz")
-manifest "$el_sha" "$(sha256sum "$work/serve/fixture/run1/cl.tar.gz" | cut -d' ' -f1)"
+printf 'not an archive\n' > "$work/serve/fixture/run1/cl.tar.zst"
+cl_bytes=$(stat -c %s "$work/serve/fixture/run1/cl.tar.zst")
+manifest "$el_sha" "$(sha256sum "$work/serve/fixture/run1/cl.tar.zst" | cut -d' ' -f1)"
 if restore 2>/dev/null; then echo "a broken archive was accepted" >&2; exit 1; fi
+[ -z "$(in_volume el 'ls -A')" ] && [ -z "$(in_volume cl 'ls -A')" ]
+
+note "a compression the restore does not know, or none named, is refused before anything is fetched"
+read -r cl_bytes cl_sha < <(layer cl "consensus chain data" zstd)
+manifest "$el_sha" "$cl_sha" gzip lz4
+if restore 2>/dev/null; then echo "an unknown compression was accepted" >&2; exit 1; fi
+[ -z "$(in_volume el 'ls -A')" ] && [ -z "$(in_volume cl 'ls -A')" ]
+manifest "$el_sha" "$cl_sha"
+sed -i 's/, "compression": "gzip"//' "$work/serve/fixture/latest.json"
+if restore 2>/dev/null; then echo "a layer without a compression was accepted" >&2; exit 1; fi
 [ -z "$(in_volume el 'ls -A')" ] && [ -z "$(in_volume cl 'ls -A')" ]
 
 note "a tombstone is 'nothing to restore', exit 3"

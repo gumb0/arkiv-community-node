@@ -183,21 +183,32 @@ fetch_object(){
   rm -f /tmp/chunk.0 /tmp/chunk.1
 }
 
+# The archive on stdin unpacked into a datadir, decompressed as the
+# manifest says. A zstd layer is written with a 2^27 window, which
+# --long=27 matches; without it the decoder refuses the stream.
+unpack(){ # unpack <compression> <dir>
+  case "$1" in
+    gzip) tar -xzf - -C "$2";;
+    zstd) zstd -d --long=27 -c | tar -xf - -C "$2";;
+  esac
+}
+
 # One layer unpacked into its datadir, hashed and counted on the way
 # into tar, so a download that arrived wrong is caught rather than
 # started from. The hashes come from the host that serves the data:
 # they catch transfer damage, nothing else.
 restore_layer(){
-  local layer=$1 dir=$2 key want_sha want_bytes have_sha have_bytes started first
+  local layer=$1 dir=$2 key want_sha want_bytes have_sha have_bytes started first compression
   key=$(jq -r ".layers.$layer.key" "$manifest")
   want_sha=$(jq -r ".layers.$layer.sha256" "$manifest")
   want_bytes=$(jq -r ".layers.$layer.bytes" "$manifest")
+  compression=$(jq -r ".layers.$layer.compression" "$manifest")
   rm -f "/tmp/$layer.sha" "/tmp/$layer.bytes"
   started=$(date +%s)
   say "$layer: fetching $key"
   fetch_object "$SNAPSHOTS_URL/$key" "$want_bytes" \
     | tee >(sha256sum | cut -d' ' -f1 > "/tmp/$layer.sha") >(wc -c | tr -d ' ' > "/tmp/$layer.bytes") \
-    | tar -xzf - -C "$dir"
+    | unpack "$compression" "$dir"
   # The two readers hang off the pipeline and finish just after it.
   for _ in $(seq 1 30); do
     [ -s "/tmp/$layer.sha" ] && [ -s "/tmp/$layer.bytes" ] && break
@@ -220,6 +231,18 @@ restore_layer(){
   chown "$(stat -c %u:%g "$first")" "$dir"
   say "$layer: verified $have_bytes bytes in $(($(date +%s) - started)) s"
 }
+
+# Each layer's compression is one this script decodes, checked before
+# any byte is fetched. No default: a manifest that does not say is one
+# this script does not understand, as the network's own script treats
+# it.
+for layer in el cl; do
+  compression=$(jq -r ".layers.$layer.compression" "$manifest")
+  case "$compression" in
+    gzip|zstd) ;;
+    *) say "$layer: unsupported snapshot compression: $compression"; exit 1;;
+  esac
+done
 
 run=$(jq -r .run "$manifest")
 block=$(jq -r .head.block "$manifest")

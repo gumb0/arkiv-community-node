@@ -7,6 +7,10 @@ that.
 
 ## Unreleased
 
+- `setup.sh` no longer warns about a changed upstream `run-node.sh`.
+  The warning asked an operator to judge a diff that is this
+  repository's to review; the check now runs in this repository's CI
+  against the recorded reviewed version (`tests/upstream-drift.sh`).
 - The snapshot restore decodes the compression the manifest names,
   zstd as well as gzip. The network's snapshots are zstd since
   2026-10-14, and a fresh install's restore failed on them with "tar:

@@ -88,10 +88,13 @@ Three change detectors decide what a setup run does:
   setup copies the artifacts fresh and recreates the containers, so the
   clients actually load the new files — container configuration alone
   would not notice content changes behind a bind mount.
-- **If the network operator's own node-running script changed** since this
-  stack was last reviewed against it, setup warns. The compose stack is a
-  hand-made translation of that script; after an upstream change, the
-  translation needs a human look before it can be trusted again.
+- **The network operator's own node-running script is watched for change.**
+  The compose stack and the snapshot restore are a hand-made translation
+  of that script; after an upstream change, the translation needs a human
+  look before it can be trusted again. The repository records the version
+  it was reviewed against, and a CI job compares the current upstream
+  script with it, so the change shows where it can be acted on. Operators
+  see nothing of this.
 
 One more step runs only when both chain volumes are empty: the first
 sync, which restores the network's published snapshot into them. It is

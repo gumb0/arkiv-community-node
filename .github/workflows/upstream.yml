@@ -1,0 +1,32 @@
+name: upstream
+
+# Whether the network operator's run-node.sh is still the version the
+# stack's translation was reviewed against (tests/upstream-drift.sh).
+# The artifacts repository is private: the job needs DB_CHAIN_NETWORKS_TOKEN,
+# a token that can read it, and is skipped where the secret is absent.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'   # every Monday at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    env:
+      TOKEN: ${{ secrets.DB_CHAIN_NETWORKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: skip without a token for the artifacts repository
+        if: env.TOKEN == ''
+        run: echo "DB_CHAIN_NETWORKS_TOKEN is not set; nothing checked"
+      - uses: actions/checkout@v5
+        if: env.TOKEN != ''
+        with:
+          repository: Arkiv-Network/db-chain-networks
+          token: ${{ env.TOKEN }}
+          path: db-chain-networks
+      - name: the translation is reviewed against the current upstream script
+        if: env.TOKEN != ''
+        run: tests/upstream-drift.sh db-chain-networks/networks/tiramisu/run-node.sh

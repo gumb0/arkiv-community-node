@@ -173,21 +173,6 @@ if [ "$RENDER_ONLY" != 1 ]; then
   [ -f "$stored_time_file" ] || printf '%s\n' "$genesis_time" > "$stored_time_file"
 fi
 
-# Drift check: our compose translation follows the upstream run-node.sh.
-# When upstream changes, the translation must be reviewed by a human —
-# this cannot be automated away, only detected.
-upstream_script="$NETWORK_DIR/run-node.sh"
-if [ -f "$upstream_script" ]; then
-  upstream_sha=$(sha256sum "$upstream_script" | cut -d' ' -f1)
-  stored_upstream_file=.setup-state/upstream-run-node.sha256
-  if [ -f "$stored_upstream_file" ] && [ "$(cat "$stored_upstream_file")" != "$upstream_sha" ]; then
-    note "WARNING: the upstream run-node.sh changed since this stack was last"
-    note "reviewed against it. Compare it with templates/compose.override.yaml.tmpl"
-    note "before trusting the render."
-  fi
-  [ "$RENDER_ONLY" = 1 ] || printf '%s\n' "$upstream_sha" > "$stored_upstream_file"
-fi
-
 # Values are read from the source directory; the copy below is for the
 # running stack, so a render-only run leaves the deployment untouched.
 
@@ -207,6 +192,7 @@ CL_ENRS=$(p2p_list cl_boot_enrs)
 : "${CL_ENRS:?p2p.yaml carries no cl_boot_enrs — try --refresh}"
 
 # Both image pins live in the upstream script.
+upstream_script="$NETWORK_DIR/run-node.sh"
 EL_IMAGE=$(grep -m1 '^EL_IMAGE=' "$upstream_script" | cut -d= -f2- || true)
 : "${EL_IMAGE:?could not extract EL_IMAGE from $upstream_script}"
 CL_IMAGE=$(grep -m1 '^CL_IMAGE=' "$upstream_script" | cut -d= -f2- || true)

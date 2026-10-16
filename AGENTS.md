@@ -37,10 +37,13 @@ sysadmins.
   involving the official RPC belongs to the status script
   (see `docs/DESIGN.md` for the full model).
 - The compose stack is a hand-made translation of the network operator's own
-  node-running script; `setup.sh` warns when that script changes upstream, and
-  the answer is to re-review and adapt the translation — never to suppress the
-  warning. Artifact parsing stays byte-compatible with upstream's own scripts:
-  being more tolerant would hide upstream formatting problems.
+  node-running script. `tests/upstream-drift.sh` holds the hash of the upstream
+  script the translation was last reviewed against, and the `upstream` workflow
+  checks the current script against it; when it fails, the answer is to
+  re-review and adapt the translation, then record the review — never to
+  record it unreviewed. Artifact parsing stays byte-compatible with
+  upstream's own scripts: being more tolerant would hide upstream
+  formatting problems.
 - `tests/ci.sh` is the entire test suite, runnable locally; it must pass
   before committing. CI runs the same script — do not add checks to the
   workflow directly.

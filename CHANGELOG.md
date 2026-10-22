@@ -13,6 +13,10 @@ that.
   directory in it, and pulls it on `--refresh`. `NETWORK_DIR` stays as
   the way to point at an artifacts directory of your own; an existing
   `.env` keeps working as it is.
+- The snapshot restore image upgrades its CA bundle past the base
+  image's, as the network operator's script does since 2026-10-22, so
+  a snapshot host whose certificate chain needs a newer root still
+  downloads.
 - The network operator restructured the artifacts repository on
   2026-10-22: the networks moved under `networks/<cluster>/<name>`
   (tiramisu is `networks/testnet/tiramisu`) and the history was

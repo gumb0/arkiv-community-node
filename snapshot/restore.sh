@@ -124,7 +124,7 @@ fetch_range(){
   n=$((to - from + 1))
   for try in 1 2 3 4 5 6; do
     if curl -fsS -r "$from-$to" --connect-timeout 30 --speed-limit "$floor" --speed-time 60 -o "$out" "$url" \
-      && [ "$(stat -c %s "$out")" -eq "$n" ]; then
+      && [ "$(wc -c <"$out" | tr -d ' ')" -eq "$n" ]; then
       return 0
     fi
     rm -f "$out"
@@ -226,9 +226,11 @@ restore_layer(){
   fi
   # The archive records the datadir's root as root-owned with the
   # client's group: the root takes the ownership of what it holds, so
-  # the client can write in it.
+  # the client can write in it. ls -nd prints an entry's numeric owner
+  # and group as its third and fourth columns.
   first=$(find "$dir" -mindepth 1 -maxdepth 1 -print -quit)
-  chown "$(stat -c %u:%g "$first")" "$dir"
+  # shellcheck disable=SC2012
+  chown "$(ls -nd "$first" | awk '{print $3 ":" $4}')" "$dir"
   say "$layer: verified $have_bytes bytes in $(($(date +%s) - started)) s"
 }
 

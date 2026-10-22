@@ -7,6 +7,13 @@ that.
 
 ## Unreleased
 
+- The network operator restructured the artifacts repository on
+  2026-10-22: the networks moved under `networks/<cluster>/<name>`
+  (tiramisu is `networks/testnet/tiramisu`) and the history was
+  rewritten. An existing clone cannot be pulled; reset it to the
+  published branch (`git fetch && git reset --hard origin/main`) and
+  set `NETWORK_DIR` in `.env` to the new path. The upstream drift
+  check follows the new path; the script it checks is unchanged.
 - `setup.sh` no longer warns about a changed upstream `run-node.sh`.
   The warning asked an operator to judge a diff that is this
   repository's to review; the check now runs in this repository's CI

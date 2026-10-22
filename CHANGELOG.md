@@ -53,9 +53,15 @@ that.
 - `setup.sh` rebuilds the marketplace commands' image. Before, an
   update left `marketplace.sh` running the old code until the image
   was removed.
+- The marketplace commands' Node image moves to 22.23.4, the current
+  security release. The commands reach only this node, over the
+  compose network, so the CA bundle in the image plays no part; the
+  bump is routine.
 
 Upgrade notes: run `./setup.sh` after this update, even if nothing
-else changed, so the marketplace commands run the new code.
+else changed, so the marketplace commands run the new code. Update
+your machine's own CA bundle too (`apt update && apt upgrade
+ca-certificates` on Debian and Ubuntu).
 
 ## v0.2.1
 

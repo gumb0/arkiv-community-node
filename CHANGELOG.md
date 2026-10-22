@@ -7,6 +7,12 @@ that.
 
 ## Unreleased
 
+- The network is chosen by name: `NETWORK=tiramisu` in `.env`, and
+  `setup.sh` clones the network operator's registry of networks (now
+  public) into `db-chain-networks/` on the first run, finds the network's
+  directory in it, and pulls it on `--refresh`. `NETWORK_DIR` stays as
+  the way to point at an artifacts directory of your own; an existing
+  `.env` keeps working as it is.
 - The network operator restructured the artifacts repository on
   2026-10-22: the networks moved under `networks/<cluster>/<name>`
   (tiramisu is `networks/testnet/tiramisu`) and the history was

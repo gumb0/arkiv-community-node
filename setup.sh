@@ -11,13 +11,16 @@ usage(){
 Usage: ./setup.sh [--refresh] [--render-only] [--yes] [--wipe]
 
 Prepares and starts an Arkiv community node. Operator values come from
-.env, or from environment variables, which win over the file. NETWORK_DIR
-is required — the network artifacts directory (genesis, checksums, peer
-endpoints) published by the network operator; everything else is optional.
-The script renders compose.override.yaml from the template and starts the
-stack. Re-running is safe and is also the update procedure.
+.env, or from environment variables, which win over the file. NETWORK is
+required — the name of the network to join, as the network operator's
+registry lists it; the script clones the registry beside itself on the
+first run and reads the network's artifacts (genesis, checksums, peer
+endpoints) from it. NETWORK_DIR instead names an artifacts directory of
+your own. Everything else is optional. The script renders
+compose.override.yaml from the template and starts the stack. Re-running
+is safe and is also the update procedure.
 
-  --refresh      git pull the artifacts repo first
+  --refresh      git pull the network registry (or your artifacts directory) first
   --render-only  stop after rendering, start nothing
   --yes          answer yes to the chain-data wipe prompt (see below)
   --wipe         wipe the chain data first and resync from scratch
@@ -45,6 +48,7 @@ done
 # Operator values. Real environment variables win over .env file — the same
 # precedence docker compose uses for its own .env handling. Just sourcing .env
 # would give the file precedence, so pre-set values are saved and restored.
+env_network="${NETWORK:-}"
 env_network_dir="${NETWORK_DIR:-}"
 env_el_port="${EL_RPC_PORT:-}"
 env_cl_port="${CL_HTTP_PORT:-}"
@@ -60,6 +64,7 @@ if [ -f .env ]; then
   . ./.env
   set +a
 fi
+[ -n "$env_network" ]     && NETWORK="$env_network"
 [ -n "$env_network_dir" ] && NETWORK_DIR="$env_network_dir"
 [ -n "$env_el_port" ]     && EL_RPC_PORT="$env_el_port"
 [ -n "$env_cl_port" ]     && CL_HTTP_PORT="$env_cl_port"
@@ -80,10 +85,9 @@ command -v docker >/dev/null || die "docker is not installed — see https://doc
 docker compose version >/dev/null 2>&1 || die "the docker compose plugin is not installed (Debian/Ubuntu: apt install docker-compose-v2)"
 command -v envsubst >/dev/null || die "envsubst is not installed (Debian/Ubuntu: apt install gettext-base)"
 command -v openssl >/dev/null || die "openssl is not installed (Debian/Ubuntu: apt install openssl)"
-[ -n "${NETWORK_DIR:-}" ] || die "NETWORK_DIR is not set.
-Set it in .env to the network artifacts directory you received (see .env.example)."
-[ -d "$NETWORK_DIR" ] || die "the network artifacts directory does not exist: $NETWORK_DIR
-Check NETWORK_DIR in .env."
+[ -n "${NETWORK_DIR:-}" ] || [ -n "${NETWORK:-}" ] || die "NETWORK is not set.
+Set it in .env to the network to join (for example tiramisu), or NETWORK_DIR to
+a network artifacts directory of your own (see .env.example)."
 if [ "$tunnel_on" = 1 ]; then
   for name in TUNNEL_SERVER_ADDR TUNNEL_SERVER_PORT TUNNEL_REMOTE_PORT TUNNEL_AGREEMENT TUNNEL_TOKEN; do
     [ -n "${!name:-}" ] || die "the tunnel profile is enabled, but $name is not set.
@@ -91,11 +95,32 @@ The tunnel settings are written by ./marketplace.sh start-tunnel (see the README
   done
 fi
 
-if [ "$REFRESH" = 1 ]; then
+# The network's artifacts come from NETWORK_DIR when the operator supplies
+# one, otherwise from the network's entry in the registry, cloned beside
+# this script on the first run.
+registry=db-chain-networks
+if [ -z "${NETWORK_DIR:-}" ] && [ ! -d "$registry" ]; then
   command -v git >/dev/null || die "git is not installed (Debian/Ubuntu: apt install git)"
-  note "Updating the artifacts repo..."
-  git -C "$NETWORK_DIR" pull --ff-only
+  note "Cloning the network registry..."
+  git clone --quiet https://github.com/Arkiv-Network/db-chain-networks.git "$registry"
+elif [ "$REFRESH" = 1 ]; then
+  command -v git >/dev/null || die "git is not installed (Debian/Ubuntu: apt install git)"
+  note "Updating the network artifacts..."
+  git -C "${NETWORK_DIR:-$registry}" pull --ff-only
 fi
+if [ -z "${NETWORK_DIR:-}" ]; then
+  # The registry keeps every network under networks/<cluster>/<name>.
+  NETWORK_DIR=$(find "$registry/networks" -mindepth 2 -maxdepth 2 -type d -name "$NETWORK" 2>/dev/null || true)
+  case "$NETWORK_DIR" in
+    "") die "the registry has no network named $NETWORK; it lists: $(find "$registry/networks" -mindepth 2 -maxdepth 2 -type d -printf '%f ' 2>/dev/null)
+A network added since your last run arrives with ./setup.sh --refresh.";;
+    *$'\n'*) die "the registry has more than one network named $NETWORK:
+$NETWORK_DIR
+Set NETWORK_DIR in .env to the one to join.";;
+  esac
+fi
+[ -d "$NETWORK_DIR" ] || die "the network artifacts directory does not exist: $NETWORK_DIR
+Check NETWORK_DIR in .env."
 
 # Verify the artifacts against the checksums the network publishes.
 [ -f "$NETWORK_DIR/SHA256SUMS" ] || die "no SHA256SUMS in $NETWORK_DIR —

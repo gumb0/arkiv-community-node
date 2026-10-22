@@ -18,10 +18,10 @@ checks, a status script, and a one-command setup.
 - An NTP-synced clock (`timedatectl` shows "synchronized: yes" on most
   systems). Consensus is slot-timed; a drifting clock desynchronizes the
   node.
-- The **network artifacts directory** — genesis, checksums, peer
-  endpoints — published by the network operator. During the current
-  phase, access is granted by the operator; keep your copy as a git
-  clone so it can be updated.
+- The **name of the network** to join, as the network operator's
+  registry of networks lists it (for example `tiramisu`). `setup.sh`
+  clones the registry, which holds every network's genesis, checksums
+  and peer endpoints, and keeps it updated.
 
 ## Quickstart
 
@@ -29,7 +29,7 @@ checks, a status script, and a one-command setup.
 git clone https://github.com/gumb0/arkiv-community-node.git
 cd arkiv-community-node
 cp .env.example .env
-# edit .env: set NETWORK_DIR to your network artifacts directory
+# edit .env: set NETWORK to the network to join
 ./setup.sh
 ```
 
@@ -92,7 +92,7 @@ docker compose restart consensus               # restart one service
 docker compose logs -f --no-log-prefix execution   # follow one service's logs
 docker system df                               # how much disk Docker uses
 ./status.sh                                    # chain-level view
-./setup.sh --refresh                           # update from the network artifacts
+./setup.sh --refresh                           # update from the network registry
 ```
 
 ## Endpoints (this host only)
@@ -267,9 +267,9 @@ volume — turning it back on later brings them back.
 ./setup.sh --refresh
 ```
 
-This pulls the artifacts repo, checks it, rebuilds the configuration,
-and restarts the containers if anything changed. An unchanged re-run
-restarts nothing.
+This pulls the network registry, checks the network's artifacts,
+rebuilds the configuration, and restarts the containers if anything
+changed. An unchanged re-run restarts nothing.
 
 When the network is **re-genesised** (a devnet restart from a new
 genesis), the old chain data belongs to a dead chain. Setup detects
@@ -308,8 +308,8 @@ already exists.)
 Run `./status.sh` first — for the common problems it names the cause and
 the fix. Beyond that:
 
-- **Setup fails at checksum verification** — your artifacts copy is stale
-  or half-updated: `git pull` in the artifacts clone and re-run.
+- **Setup fails at checksum verification** — your copy of the registry
+  is stale or half-updated: `./setup.sh --refresh`.
 - **"The snapshot restore failed"** — the lines above it name the cause:
   not enough free space (the restore says what it needs), the endpoint
   unreachable, or a layer that arrived damaged. Both chain volumes are

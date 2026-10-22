@@ -14,6 +14,26 @@ note "marketplace package: typecheck and unit tests"
 note "render through setup.sh against the fixture network"
 NETWORK_DIR=tests/fixture-network ./setup.sh --render-only
 
+note "the network is found in the registry by name"
+# A registry tree of the fixture stands in for the clone at its place,
+# with a real clone and .env moved aside so the name alone decides; a
+# name the registry lacks or doubles is refused.
+tmp=$(mktemp -d)
+[ -d db-chain-networks ] && mv db-chain-networks "$tmp/registry.kept"
+[ -f .env ] && mv .env "$tmp/env.kept"
+trap '[ -d "$tmp/registry.kept" ] && mv "$tmp/registry.kept" db-chain-networks; [ -f "$tmp/env.kept" ] && mv "$tmp/env.kept" .env; rm -rf "$tmp"' EXIT
+mkdir -p db-chain-networks/networks/testnet db-chain-networks/networks/devnet
+cp -a tests/fixture-network db-chain-networks/networks/testnet/one
+NETWORK=one ./setup.sh --render-only >/dev/null
+if NETWORK=zzz ./setup.sh --render-only 2>/dev/null; then echo "an unknown network name rendered" >&2; exit 1; fi
+cp -a tests/fixture-network db-chain-networks/networks/devnet/one
+if NETWORK=one ./setup.sh --render-only 2>/dev/null; then echo "a doubled network name rendered" >&2; exit 1; fi
+rm -rf db-chain-networks
+[ -d "$tmp/registry.kept" ] && mv "$tmp/registry.kept" db-chain-networks
+[ -f "$tmp/env.kept" ] && mv "$tmp/env.kept" .env
+rm -rf "$tmp"
+trap - EXIT
+
 note "validate the merged stack"
 docker compose config -q
 

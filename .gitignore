@@ -2,7 +2,9 @@
 .env
 secrets/
 
-# Fetched network artifacts and files rendered from them
+# The network operator's registry (cloned by setup.sh), the fetched
+# network artifacts, and files rendered from them
+db-chain-networks/
 artifacts/
 compose.override.yaml
 .setup-state/

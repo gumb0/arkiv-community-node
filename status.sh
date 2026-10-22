@@ -208,7 +208,7 @@ else
     printf '%s chain id:   %s (matches the network artifacts)\n' "$g_ok" "$(hex2dec "$chain_hex")"
   else
     printf '%s%s chain id:   %s — EXPECTED %s: wrong network!%s\n' "$red" "$g_fail" "$(hex2dec "$chain_hex")" "$CHAIN_ID" "$reset"
-    printf '              check NETWORK_DIR in .env; to switch networks:\n'
+    printf '              check NETWORK (or NETWORK_DIR) in .env; to switch networks:\n'
     printf '              ./setup.sh --wipe\n'
   fi
   printf '  local head: #%s %s (age %ss)\n' "$local_head" "$local_hash" "$age"

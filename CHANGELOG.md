@@ -7,6 +7,9 @@ that.
 
 ## Unreleased
 
+- `setup.sh` refuses a network whose `metadata.yaml` has a chain id
+  that is not a number, or a name or base domain that is not a DNS
+  name.
 - The network is chosen by name: `NETWORK=tiramisu` in `.env`, and
   `setup.sh` clones the network operator's registry of networks (now
   public) into `db-chain-networks/` on the first run, finds the network's

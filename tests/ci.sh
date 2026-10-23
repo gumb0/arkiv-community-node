@@ -34,6 +34,26 @@ rm -rf db-chain-networks
 rm -rf "$tmp"
 trap - EXIT
 
+note "a metadata value that is not a number or a DNS name is refused"
+# The values are written into a file status.sh sources, so the refusal
+# has to name the field, and nothing is rendered from such a network.
+tmp=$(mktemp -d)
+refused(){ # field, bad line
+  cp -a tests/fixture-network "$tmp/bad"
+  sed -i "s/^$1:.*/$2/" "$tmp/bad/metadata.yaml"
+  # The checksums are verified first; the bad value has to pass them.
+  (cd "$tmp/bad" && sha256sum metadata.yaml > SHA256SUMS)
+  if NETWORK_DIR=$tmp/bad ./setup.sh --render-only 2>"$tmp/err"; then echo "a bad $1 rendered" >&2; exit 1; fi
+  grep -q "$1" "$tmp/err"
+  rm -rf "$tmp/bad"
+}
+# shellcheck disable=SC2016  # The shell syntax is the bad value itself, not meant to expand.
+refused baseDomain 'baseDomain: example.org;$(touch pwned)'
+# shellcheck disable=SC2016
+refused name 'name: fixture`id`'
+refused chainId 'chainId: 0x1'
+rm -rf "$tmp"
+
 note "validate the merged stack"
 docker compose config -q
 

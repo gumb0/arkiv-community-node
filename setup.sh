@@ -231,6 +231,11 @@ BASE_DOMAIN=$(meta_value baseDomain)
 : "${CHAIN_ID:?could not read chainId from metadata.yaml}"
 : "${NET_NAME:?could not read name from metadata.yaml}"
 : "${BASE_DOMAIN:?could not read baseDomain from metadata.yaml}"
+# Checked here because they are written into a file that status.sh
+# sources, and they build the official RPC address.
+[[ $CHAIN_ID =~ ^[0-9]+$ ]] || die "chainId in metadata.yaml is not a number: '$CHAIN_ID'"
+[[ $NET_NAME =~ ^[A-Za-z0-9.-]+$ ]] || die "name in metadata.yaml is not a DNS name: '$NET_NAME'"
+[[ $BASE_DOMAIN =~ ^[A-Za-z0-9.-]+$ ]] || die "baseDomain in metadata.yaml is not a DNS name: '$BASE_DOMAIN'"
 
 # Render the override: image pins and command lines, peer endpoints
 # substituted in. Variables are whitelisted, envsubst doesn't modify others.

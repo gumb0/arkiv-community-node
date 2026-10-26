@@ -88,18 +88,23 @@ fi
 # Memory, as Docker sees it. On a Linux host with Docker Engine that is
 # the host's memory; a daemon reporting much less than the host runs the
 # containers in a VM (Docker Desktop), which this stack is not made for.
+# The total is what the kernel leaves for programs, so a machine sold as
+# 16 GB reports 15.6 and one with a big GPU reservation less; that is
+# the memory the node gets, printed as it is. The floors are judged with
+# half a GB of slack, so they still mean the sizes machines are sold as.
 if [ "$docker_ok" = 1 ]; then
-  docker_mem_gb=$(( $(docker info --format '{{.MemTotal}}') / 1024 / 1024 / 1024 ))
-  host_mem_gb=$(( $(awk '/^MemTotal:/ {print $2}' /proc/meminfo) / 1024 / 1024 ))
-  if [ "$docker_mem_gb" -lt "$MIN_MEMORY_GB" ]; then
-    fail "memory:" "$docker_mem_gb GB available to Docker — the execution client needs at least $MIN_MEMORY_GB GB to sync, $GOOD_MEMORY_GB GB to run comfortably"
-  elif [ "$docker_mem_gb" -lt "$GOOD_MEMORY_GB" ]; then
-    warn "memory:" "$docker_mem_gb GB available to Docker — enough to follow the chain; $GOOD_MEMORY_GB GB or more is comfortable, and a swap file helps a sync from genesis"
+  docker_mem_mb=$(( $(docker info --format '{{.MemTotal}}') / 1024 / 1024 ))
+  host_mem_mb=$(( $(awk '/^MemTotal:/ {print $2}' /proc/meminfo) / 1024 ))
+  gb(){ awk -v mb="$1" 'BEGIN { printf "%.1f", mb / 1024 }'; }
+  if [ "$docker_mem_mb" -lt $(( MIN_MEMORY_GB * 1024 - 512 )) ]; then
+    fail "memory:" "$(gb "$docker_mem_mb") GB available to Docker — the execution client needs at least $MIN_MEMORY_GB GB to sync, $GOOD_MEMORY_GB GB to run comfortably"
+  elif [ "$docker_mem_mb" -lt $(( GOOD_MEMORY_GB * 1024 - 512 )) ]; then
+    warn "memory:" "$(gb "$docker_mem_mb") GB available to Docker — enough to follow the chain; $GOOD_MEMORY_GB GB or more is comfortable, and a swap file helps a sync from genesis"
   else
-    ok "memory:" "$docker_mem_gb GB available to Docker"
+    ok "memory:" "$(gb "$docker_mem_mb") GB available to Docker"
   fi
-  if [ "$docker_mem_gb" -lt $(( host_mem_gb * 3 / 4 )) ]; then
-    warn "docker vm:" "Docker has $docker_mem_gb GB of the host's $host_mem_gb GB: it runs the containers in a VM (Docker Desktop?)"
+  if [ "$docker_mem_mb" -lt $(( host_mem_mb * 3 / 4 )) ]; then
+    warn "docker vm:" "Docker has $(gb "$docker_mem_mb") GB of the host's $(gb "$host_mem_mb") GB: it runs the containers in a VM (Docker Desktop?)"
     hint "the node is made for a Linux host with Docker Engine; a VM is not tested"
   fi
 fi

@@ -11,6 +11,27 @@ git ls-files '*.sh' | xargs -r shellcheck
 note "marketplace package: typecheck and unit tests"
 (cd marketplace && npm ci --silent && npm run --silent typecheck && npm test)
 
+note "preflight reports every check, and names the commands a machine lacks"
+# The verdict depends on the runner (its disk is well below the floor),
+# so the run is judged by its lines, not its exit code; the failing path
+# is driven by a PATH with the basic tools and none of the five commands.
+out=$(./preflight.sh || true)
+for label in architecture commands docker memory disk clock ports; do
+  printf '%s\n' "$out" | grep -q "^. $label:" || { echo "preflight has no $label line:"; printf '%s\n' "$out"; exit 1; } >&2
+done
+tmp=$(mktemp -d)
+for f in /usr/bin/*; do
+  case ${f##*/} in
+    docker|git|openssl|envsubst|curl) continue;;  # the five the check must miss
+  esac
+  ln -s "$f" "$tmp/" 2>/dev/null || true
+done
+if out=$(PATH=$tmp ./preflight.sh); then echo "preflight passed with no docker on the PATH" >&2; exit 1; fi
+for command in docker git openssl envsubst curl; do
+  printf '%s\n' "$out" | grep -q "$command is not installed" || { echo "preflight did not name $command"; exit 1; } >&2
+done
+rm -rf "$tmp"
+
 note "render through setup.sh against the fixture network"
 NETWORK_DIR=tests/fixture-network ./setup.sh --render-only
 

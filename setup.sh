@@ -18,7 +18,9 @@ first run and reads the network's artifacts (genesis, checksums, peer
 endpoints) from it. NETWORK_DIR instead names an artifacts directory of
 your own. Everything else is optional. The script renders
 compose.override.yaml from the template and starts the stack. Re-running
-is safe and is also the update procedure.
+is safe and is also the update procedure. On the first run it checks the
+machine first (./preflight.sh) and stops when something blocks setup;
+SKIP_PREFLIGHT=1 goes on anyway.
 
   --refresh      git pull the network registry (or your artifacts directory) first
   --render-only  stop after rendering, start nothing
@@ -80,7 +82,14 @@ tunnel_on=0 monitor_on=0
 case ",${COMPOSE_PROFILES:-}," in *,tunnel,*) tunnel_on=1;; esac
 case ",${COMPOSE_PROFILES:-}," in *,monitor,*) monitor_on=1;; esac
 
-# Prerequisites, checked before touching anything.
+# The machine itself, on the first run only: a node that has run here
+# has passed these already. A render starts nothing, so it skips them.
+if [ ! -d .setup-state ] && [ "$RENDER_ONLY" = 0 ] && [ -z "${SKIP_PREFLIGHT:-}" ]; then
+  ./preflight.sh || die "the machine does not fit a node (above). Fix it, or run again with SKIP_PREFLIGHT=1 to go on anyway."
+fi
+
+# Prerequisites, checked before touching anything; also the runs the
+# preflight does not cover.
 command -v docker >/dev/null || die "docker is not installed — see https://docs.docker.com/engine/install/"
 docker compose version >/dev/null 2>&1 || die "the docker compose plugin is not installed (Debian/Ubuntu: apt install docker-compose-v2)"
 command -v envsubst >/dev/null || die "envsubst is not installed (Debian/Ubuntu: apt install gettext-base)"

@@ -13,7 +13,9 @@ that.
 - `./preflight.sh` checks a machine before setup: the architecture,
   the commands the scripts use, the memory and disk Docker has, whether
   the disk is rotational, the clock, and the local ports. One line per
-  check with what to fix; exit 1 when something blocks setup.
+  check with what to fix; exit 1 when something blocks setup. `setup.sh`
+  runs it on its first run and stops on a failure (`SKIP_PREFLIGHT=1`
+  goes on anyway).
 - `setup.sh` refuses a network whose `metadata.yaml` has a chain id
   that is not a number, or a name or base domain that is not a DNS
   name.

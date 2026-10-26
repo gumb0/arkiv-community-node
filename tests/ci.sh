@@ -19,18 +19,41 @@ out=$(./preflight.sh || true)
 for label in architecture commands docker memory disk clock ports; do
   printf '%s\n' "$out" | grep -q "^. $label:" || { echo "preflight has no $label line:"; printf '%s\n' "$out"; exit 1; } >&2
 done
-tmp=$(mktemp -d)
-for f in /usr/bin/*; do
-  case ${f##*/} in
-    docker|git|openssl|envsubst|curl) continue;;  # the five the check must miss
-  esac
-  ln -s "$f" "$tmp/" 2>/dev/null || true
-done
-if out=$(PATH=$tmp ./preflight.sh); then echo "preflight passed with no docker on the PATH" >&2; exit 1; fi
+# A directory with every command of /usr/bin except the named ones, to
+# stand as the PATH of a machine that lacks them.
+path_without(){
+  local dir f
+  dir=$(mktemp -d)
+  for f in /usr/bin/*; do
+    case " $* " in *" ${f##*/} "*) continue;; esac
+    ln -s "$f" "$dir/" 2>/dev/null || true
+  done
+  printf '%s\n' "$dir"
+}
+bare=$(path_without docker git openssl envsubst curl)
+if out=$(PATH=$bare ./preflight.sh); then echo "preflight passed with no docker on the PATH" >&2; exit 1; fi
 for command in docker git openssl envsubst curl; do
   printf '%s\n' "$out" | grep -q "$command is not installed" || { echo "preflight did not name $command"; exit 1; } >&2
 done
-rm -rf "$tmp"
+rm -rf "$bare"
+
+note "setup.sh runs the preflight on its first run only, and stops on a failure"
+# A copy of the two scripts with no state directory is a first run: the
+# preflight runs, fails on the missing git, and setup stops before the
+# registry clone. With a state directory it is a later run: setup goes
+# straight on and fails at its own clone step with its own message.
+tmp=$(mktemp -d)
+cp setup.sh preflight.sh "$tmp/"
+nogit=$(path_without git)
+if out=$(cd "$tmp" && NETWORK=one PATH=$nogit ./setup.sh 2>&1); then echo "a first run with no git went on" >&2; exit 1; fi
+printf '%s\n' "$out" | grep -q 'git is not installed' || { echo "the first run did not run the preflight:"; printf '%s\n' "$out"; exit 1; } >&2
+printf '%s\n' "$out" | grep -q 'does not fit a node' || { echo "the first run did not stop on the preflight:"; printf '%s\n' "$out"; exit 1; } >&2
+[ ! -d "$tmp/db-chain-networks" ] || { echo "setup cloned the registry before the preflight" >&2; exit 1; }
+mkdir "$tmp/.setup-state"
+if out=$(cd "$tmp" && NETWORK=one PATH=$nogit ./setup.sh 2>&1); then echo "a later run with no git went on" >&2; exit 1; fi
+printf '%s\n' "$out" | grep -q 'setup.sh: git is not installed' || { echo "the later run did not fail at its own clone step:"; printf '%s\n' "$out"; exit 1; } >&2
+if printf '%s\n' "$out" | grep -q 'does not fit a node'; then echo "a later run ran the preflight" >&2; exit 1; fi
+rm -rf "$tmp" "$nogit"
 
 note "render through setup.sh against the fixture network"
 NETWORK_DIR=tests/fixture-network ./setup.sh --render-only

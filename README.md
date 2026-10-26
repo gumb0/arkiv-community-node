@@ -25,16 +25,16 @@ checks, a status script, and a one-command setup.
 
 `./preflight.sh` checks all of this on the machine, plus the memory and
 disk Docker has, and the local ports the stack uses. It says what to fix
-and changes nothing. The disk is the real requirement: the chain state
-grows by tens of GB a day on a busy network, so plan for 1 TB on an SSD
-with a way to add more.
+and changes nothing; `setup.sh` runs it on its first run and stops when
+something blocks setup. The disk is the real requirement: the chain
+state grows by tens of GB a day on a busy network, so plan for 1 TB on
+an SSD with a way to add more.
 
 ## Quickstart
 
 ```bash
 git clone https://github.com/gumb0/arkiv-community-node.git
 cd arkiv-community-node
-./preflight.sh
 cp .env.example .env
 # edit .env: set NETWORK to the network to join
 ./setup.sh

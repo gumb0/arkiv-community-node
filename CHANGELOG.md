@@ -7,6 +7,9 @@ that.
 
 ## Unreleased
 
+- `marketplace.sh status` says when the tunnel is configured for an
+  agreement that has ended, and what to do: post a new offer, then
+  run `start-tunnel` again.
 - `./preflight.sh` checks a machine before setup: the architecture,
   the commands the scripts use, the memory and disk Docker has, whether
   the disk is rotational, the clock, and the local ports. One line per

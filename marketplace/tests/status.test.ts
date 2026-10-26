@@ -97,6 +97,14 @@ describe("status", () => {
     equal(upper[4], "Tunnel: configured for this agreement", "case is no difference")
   })
 
+  it("says when the tunnel is for an agreement that has ended", async () => {
+    // The agreement record expired while the tunnel kept running: the
+    // tunnel is connected but nothing is counted or paid for it.
+    const out = await lines({ ...rows, agreement: [] }, SETTLE, TUNNEL)
+    equal(out[3], "Agreement: none")
+    equal(out[4], `Tunnel: configured for agreement ${AGREEMENT} on port 20007, which has ended: post a new offer, then run start-tunnel again`)
+  })
+
   it("closed records without a receipt await payout, paid ones do not", async () => {
     const out = await lines({ ...rows, receipt: [] }, SETTLE, TUNNEL)
     equal(out[6], "Awaiting payout: 2 closed records, 350 requests")

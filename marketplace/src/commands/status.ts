@@ -84,6 +84,10 @@ export async function status(o: Status): Promise<void> {
     } else {
       o.print("Tunnel: configured for this agreement")
     }
+  } else if (o.tunnel?.agreement) {
+    o.print(
+      `Tunnel: configured for agreement ${o.tunnel.agreement} on port ${o.tunnel.port}, which has ended: post a new offer, then run start-tunnel again`,
+    )
   }
 
   const counters = (

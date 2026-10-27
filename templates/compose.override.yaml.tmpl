@@ -40,3 +40,7 @@ services:
       - --boot-nodes=${CL_ENRS}
       - --allow-insecure-genesis-sync
       - --ignore-ws-check
+      # With optimistic finalized sync off, the beacon node hands every
+      # finalized block to the execution layer for verification while it
+      # syncs, which lets the execution layer catch up after a long stop.
+      - --disable-optimistic-finalized-sync

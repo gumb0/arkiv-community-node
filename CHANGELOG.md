@@ -7,6 +7,11 @@ that.
 
 ## Unreleased
 
+- The beacon node runs with optimistic finalized sync off, as the
+  network operator's script does since 2026-10-26: it hands every
+  finalized block to the execution layer while it syncs, so the
+  execution layer catches up after a long stop. `./setup.sh` recreates
+  the consensus container with the flag.
 - `marketplace.sh status` says when the tunnel is configured for an
   agreement that has ended, and what to do: post a new offer, then
   run `start-tunnel` again.

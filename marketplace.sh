@@ -11,7 +11,7 @@ usage: ./marketplace.sh <command>
 
   create-key    create your provider key (once)
   post-offer    offer your node to the load balancer
-  status        your offer, agreement, counts and payouts
+  status        the records as JSON; ./status.sh shows them
   start-tunnel  connect your node once the offer is accepted
 USAGE
 }

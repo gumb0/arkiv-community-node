@@ -9,6 +9,12 @@
 services:
   execution:
     image: ${EL_IMAGE}
+    # The Arkiv store runs inside the node and refuses to start without
+    # its directory. It sits in the datadir volume beside reth's own
+    # database, so it survives a re-run and is part of every snapshot of
+    # /data.
+    environment:
+      ARKIV_STORE_PATH: /data/golemdb
     command:
       - node
       - --chain=/gen/genesis.json

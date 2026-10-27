@@ -7,6 +7,11 @@ that.
 
 ## Unreleased
 
+- The execution client gets `ARKIV_STORE_PATH=/data/golemdb`, as the
+  network operator's script sets it since 2026-10-27: the directory of
+  the Arkiv store that newer client versions run inside the node, in
+  the datadir volume beside reth's database. The current image ignores
+  it; `./setup.sh` recreates the container with it.
 - The beacon node runs with optimistic finalized sync off, as the
   network operator's script does since 2026-10-26: it hands every
   finalized block to the execution layer while it syncs, so the

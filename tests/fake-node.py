@@ -51,6 +51,9 @@ class Handler(BaseHTTPRequestHandler):
             self.answer({"data": {"is_syncing": SYNCING, "is_optimistic": SYNCING, "el_offline": False}})
         elif self.path == "/eth/v1/node/peer_count":
             self.answer({"data": {"connected": "3"}})
+        elif self.path == "/api/status":
+            # The tunnel client's status endpoint: a connected proxy.
+            self.answer({"status": "running"})
         else:
             self.send_error(404)
 

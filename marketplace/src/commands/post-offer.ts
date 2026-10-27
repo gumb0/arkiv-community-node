@@ -35,7 +35,7 @@ export type Outcome = { posted: Hex } | { refused: string }
 
 export async function postOffer(o: PostOffer): Promise<Outcome> {
   if (o.node.syncing) {
-    return refuse(o, "your node is still syncing. Post the offer once status.sh says READY.")
+    return refuse(o, "your node is still syncing. Post the offer once ./status.sh stops saying SYNCING.")
   }
   const head = await o.reader.head()
 

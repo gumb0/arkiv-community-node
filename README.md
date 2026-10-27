@@ -133,8 +133,8 @@ If the tunnel server turns the client away, the reason is in the
 client's log (`docker compose logs tunnel`), in plain words: the
 agreement it names is unknown, the token was not signed by the key
 that posted the offer, or the port is not the assigned one. Run
-`./marketplace.sh status` to see your agreement, and `start-tunnel`
-again after it changed.
+`./status.sh` to see your agreement, and `start-tunnel` again after
+it changed.
 
 To stop tunneling, remove `tunnel` from `COMPOSE_PROFILES` in `.env` and
 re-run `./setup.sh` — it stops the tunnel container. A "network is in
@@ -176,7 +176,7 @@ nothing is installed on your machine.
      between claims.
 
    Your node shows the new balance once it has synced past the claim
-   (`./marketplace.sh status`, first line). This GLM pays gas on the
+   (`./status.sh`, the first line under "pool"). This GLM pays gas on the
    Arkiv chain only; payouts arrive separately, on the payout chain.
 
 2. **Offer your node.** With the node synced and the key funded:
@@ -196,10 +196,11 @@ nothing is installed on your machine.
 3. **See where you stand.** At any time:
 
    ```bash
-   ./marketplace.sh status
+   ./status.sh
    ```
 
-   One line each: your key and its balance, the load balancer's rate
+   Its verdict says whether the node serves the pool and, when not,
+   what to do next. Under "pool", one line each: your key and its balance, the load balancer's rate
    and free slots, your offer, your agreement with its tunnel port,
    whether your tunnel is set up for that agreement, the requests
    counted for you as last written by the load balancer, the closed

@@ -142,8 +142,13 @@ The node is OK when both are green. Design rules behind the model:
 ## 5. The status script
 
 `status.sh` answers what badges cannot: right chain, current head and its
-age, peer counts per layer, and whether the local view matches the official
-RPC. Its design rules:
+age, peer counts per layer, whether the local view matches the official
+RPC, and, once a provider key exists, where the node stands with the
+load balancer: it runs `marketplace.sh status`, which answers one
+line of JSON (a field per fact), renders the report under "pool", and
+its verdict names the next step towards serving. The records are
+read in one place, the marketplace commands, and worded in one place,
+the script. Its design rules:
 
 - **A reference problem is never this node's fault.** Unreachable, rate
   limited, or answering strangely — the script reports "local view only"
@@ -153,7 +158,7 @@ RPC. Its design rules:
 - **A fault and readiness are two answers.** A healthy sync is no
   fault, so the exit code stays 0 while the node catches up; the verdict
   says SYNCING until the beacon node's own view (the consensus badge's
-  three flags) says it is current, and READY after.
+  three flags) says it is current, and NOT SERVING YET or SERVING after.
 - **A missing comparison is "unknown", never a mismatch.** Hash mismatch is
   the scariest thing the script can say — it must mean exactly that, with
   both hashes printed as evidence.

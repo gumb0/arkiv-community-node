@@ -10,6 +10,17 @@ that.
 - The offer's `mem_gb` is the machine's memory as the kernel maps it,
   what `lsmem` sums, so a 16 GB machine posts 16 where it posted 15: the
   kernel's own total leaves out what the kernel keeps for itself.
+- `status.sh` says whether the node serves the community pool, and
+  what to do next when it does not. The verdict is SERVING (current,
+  tunnel connected for your agreement), NOT SERVING YET (current; the
+  line under it names the next step: the key, the faucet, the offer,
+  the load balancer's acceptance, the tunnel), SYNCING, or NEEDS
+  ATTENTION; READY is gone. Once a provider key exists the script
+  shows the marketplace records under "pool" (your key and balance,
+  the load balancer's terms, offer, agreement, tunnel, counts,
+  payouts), so one command tells the whole story; `marketplace.sh
+  status` now answers those facts as one line of JSON for it. `--json`
+  gains `serving`, `next` and `pool.count` (#23).
 - The execution client gets `ARKIV_STORE_PATH=/data/golemdb`, as the
   network operator's script sets it since 2026-10-27: the directory of
   the Arkiv store that newer client versions run inside the node, in

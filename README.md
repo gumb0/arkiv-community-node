@@ -74,16 +74,19 @@ The two health badges make different claims:
 
 | Service | `healthy` means |
 |---|---|
-| execution | Serving JSON-RPC |
+| execution | Answers JSON-RPC on this host |
 | consensus | The whole node is **current** — at the chain tip, fully validated |
 
 | Badge | Meaning | What to do |
 |---|---|---|
 | `starting` | First sync in progress: the rest of the chain after the snapshot, or the whole chain from genesis, which takes **hours** | Wait; watch progress with `./status.sh` |
 | `healthy` | See the table above | Nothing |
-| `unhealthy` | Not serving, or stuck | Check logs; re-run `./setup.sh`; restart is up to you — nothing restarts containers automatically while they stay alive |
+| `unhealthy` | Not answering, or stuck | Check logs; re-run `./setup.sh`; restart is up to you — nothing restarts containers automatically while they stay alive |
 
-The node is OK when **both** badges are green.
+Both badges green means the node is synced and current. It serves the
+community endpoint only after
+[Joining the community pool](#joining-the-community-pool);
+`./status.sh` names the next step.
 
 `./status.sh` answers what the badges cannot: right chain, current head
 and its age, peer counts, and whether your view matches the network's
@@ -110,7 +113,7 @@ internet:
 - JSON-RPC: `http://127.0.0.1:8545` (port: `EL_RPC_PORT` in `.env`)
 - Beacon API: `http://127.0.0.1:5052` (port: `CL_HTTP_PORT`)
 
-## Serving through a tunnel (optional)
+## Serving through a tunnel
 
 A node behind NAT serves its JSON-RPC to the load balancer through a
 tunnel. The tunnel is part of joining the marketplace: once your offer
@@ -137,7 +140,10 @@ To stop tunneling, remove `tunnel` from `COMPOSE_PROFILES` in `.env` and
 re-run `./setup.sh` — it stops the tunnel container. A "network is in
 use" warning is expected — the node's containers keep using the network.
 
-## Joining the marketplace (optional)
+## Joining the community pool
+
+Your node serves the community endpoint, and is paid for it, only after
+these steps. Skip them only if you run the node for yourself.
 
 The community load balancer pays community nodes for the requests they
 serve, in GLM. Joining is a few steps, each one command of

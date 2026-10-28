@@ -310,10 +310,16 @@ if [ -n "$pool_json" ]; then
   else
     pool_lines+=("Offer: $(pf offer_key), expires $(in_words "$(pf offer_expires_in_seconds)")")
   fi
+  # The record's expiry is a deadline only until the tunnel is up: the
+  # load balancer extends the record again and again while the node
+  # serves, so on a serving node the time left is what would happen if
+  # that stopped.
   if [ "$(pf agreement_key)" = null ]; then
     pool_lines+=("Agreement: none")
+  elif [ "$(pf tunnel_state)" = current ] && [ "$tunnel_state" = running ]; then
+    pool_lines+=("Agreement: $(pf agreement_key), tunnel port $(pf agreement_port), $(pf agreement_glm_per_request) GLM per request, kept alive by the load balancer while your node serves; ends $(in_words "$(pf agreement_expires_in_seconds)") if that stops")
   else
-    pool_lines+=("Agreement: $(pf agreement_key), tunnel port $(pf agreement_port), $(pf agreement_glm_per_request) GLM per request, expires $(in_words "$(pf agreement_expires_in_seconds)")")
+    pool_lines+=("Agreement: $(pf agreement_key), tunnel port $(pf agreement_port), $(pf agreement_glm_per_request) GLM per request, ends $(in_words "$(pf agreement_expires_in_seconds)") unless the tunnel connects")
   fi
   case "$(pf tunnel_state)" in
     current) pool_lines+=("Tunnel: configured for this agreement");;

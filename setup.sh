@@ -412,7 +412,7 @@ done
 cat <<EOF
 
 Started. To verify:
-  docker compose ps                 # both services, health goes green when synced
+  docker compose ps                 # execution and consensus go healthy when synced
   ./status.sh                       # chain-level view: right chain, current head
   docker compose logs -f execution  # watch the sync progress
 

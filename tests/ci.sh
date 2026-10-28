@@ -269,6 +269,11 @@ MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status --json 
 # A note after the object does not stop the script: the object is the
 # last line that is one.
 MARKETPLACE_STATUS=$(printf '%s\n%s' "$pool" "a note after the object") status | grep -q 'overall: *NOT SERVING YET'
+# A span the object lacks reads as unknown; a span of zero is "now".
+MARKETPLACE_STATUS='{"address":"0x2121","balance_glm":"1","offer_key":"0x0f","agreement_key":null,"tunnel_state":"unconfigured","count":null,"awaiting_records":0,"payouts_receipts":0,"next":"acceptance"}' status > "$tmp/out"
+grep -q '^ *Offer: 0x0f, expires in an unknown time' "$tmp/out"
+grep -q 'next: *waiting for the load balancer' "$tmp/out"
+MARKETPLACE_STATUS=${pool//\"offer_expires_in_seconds\":3600/\"offer_expires_in_seconds\":0} status | grep -q '^ *Offer: 0x0f, expires now'
 # The records out of reach: the verdict says so instead of guessing, and
 # everything the command printed is under the pool line.
 status > "$tmp/out"

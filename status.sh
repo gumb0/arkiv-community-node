@@ -190,12 +190,15 @@ pf(){ # pf <fact> — one of the pool's fields, "null" when it is not there
 }
 plural(){ [ "$1" = 1 ] || printf s; }
 about(){ # about <seconds> — "about 3 hours": minutes, hours from two on, days from two on
+  case "$1" in ''|*[!0-9]*) printf 'an unknown time'; return;; esac
   local m=$(( ($1 + 30) / 60 )) h
   if [ "$m" -lt 120 ]; then printf 'about %s minute%s' "$m" "$(plural "$m")"; return; fi
   h=$(( (m + 30) / 60 ))
   if [ "$h" -lt 48 ]; then printf 'about %s hours' "$h"; return; fi
   printf 'about %s days' "$(( (h + 12) / 24 ))"
 }
+in_words(){ case "$1" in 0|-*) printf now;; *) printf 'in %s' "$(about "$1")";; esac; }
+ago_words(){ case "$1" in 0|-*) printf 'just now';; *) printf '%s ago' "$(about "$1")";; esac; }
 # The pool's report, one line per fact, in the order of the steps.
 pool_lines=()
 if [ -n "$pool_json" ]; then
@@ -211,12 +214,12 @@ if [ -n "$pool_json" ]; then
   if [ "$(pf offer_key)" = null ]; then
     pool_lines+=("Offer: none")
   else
-    pool_lines+=("Offer: $(pf offer_key), expires in $(about "$(pf offer_expires_in_seconds)")")
+    pool_lines+=("Offer: $(pf offer_key), expires $(in_words "$(pf offer_expires_in_seconds)")")
   fi
   if [ "$(pf agreement_key)" = null ]; then
     pool_lines+=("Agreement: none")
   else
-    pool_lines+=("Agreement: $(pf agreement_key), tunnel port $(pf agreement_port), $(pf agreement_glm_per_request) GLM per request, expires in $(about "$(pf agreement_expires_in_seconds)")")
+    pool_lines+=("Agreement: $(pf agreement_key), tunnel port $(pf agreement_port), $(pf agreement_glm_per_request) GLM per request, expires $(in_words "$(pf agreement_expires_in_seconds)")")
   fi
   case "$(pf tunnel_state)" in
     current) pool_lines+=("Tunnel: configured for this agreement");;
@@ -229,9 +232,9 @@ if [ -n "$pool_json" ]; then
   if [ "$(pf count)" = null ]; then
     pool_lines+=("Counting: no open record")
   elif [ "$(pf count_written_seconds_ago)" = null ]; then
-    pool_lines+=("Counting: record opened $(about "$(pf count_opened_seconds_ago)") ago, no count written yet (the load balancer writes it from time to time; since block $(pf count_opened_block), record $(pf count_record))")
+    pool_lines+=("Counting: record opened $(ago_words "$(pf count_opened_seconds_ago)"), no count written yet (the load balancer writes it from time to time; since block $(pf count_opened_block), record $(pf count_record))")
   else
-    pool_lines+=("Counting: $(pf count) requests as of the last write, $(about "$(pf count_written_seconds_ago)") ago (since block $(pf count_opened_block), record $(pf count_record))")
+    pool_lines+=("Counting: $(pf count) requests as of the last write, $(ago_words "$(pf count_written_seconds_ago)") (since block $(pf count_opened_block), record $(pf count_record))")
   fi
   n=$(pf awaiting_records)
   if [ "$n" = 0 ]; then

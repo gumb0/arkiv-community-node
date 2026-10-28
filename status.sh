@@ -172,7 +172,7 @@ fi
 # read by marketplace.sh status in its container as one line of JSON
 # (flat, a field per fact, null where there is nothing). Nothing to read
 # before a key exists; the first step is then the key.
-pool_next=create-key pool_json='' pool_err=''
+pool_next=create-key pool_json='' pool_out=''
 if [ -f secrets/provider-key.json ]; then
   # The object is the last line that is one: the container runtime may
   # print around it.
@@ -181,7 +181,6 @@ if [ -f secrets/provider-key.json ]; then
     pool_next=$(printf '%s' "$pool_json" | jfield next || printf unknown)
   else
     pool_next=unknown
-    pool_err=$(printf '%s\n' "$pool_out" | tail -1)
   fi
 fi
 pf(){ # pf <fact> — one of the pool's fields, "null" when it is not there
@@ -364,7 +363,9 @@ else
       printf '%s%s reference:  unreachable — local view only (not a local problem)%s\n' "$yellow" "$g_warn" "$reset";;
   esac
   if [ "$pool_next" = unknown ]; then
-    printf '%s%s pool:       marketplace status could not run — %s%s\n' "$yellow" "$g_warn" "$pool_err" "$reset"
+    # Everything the command printed, as it printed it.
+    printf '%s%s pool:       marketplace status could not run:%s\n' "$yellow" "$g_warn" "$reset"
+    while IFS= read -r line; do printf '              %s\n' "$line"; done <<<"$pool_out"
   else
     label='  pool:       '
     for line in "${pool_lines[@]}"; do

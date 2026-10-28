@@ -236,7 +236,7 @@ grep -q 'next: *create your provider key' "$tmp/out"
 mkdir "$tmp/secrets" && : > "$tmp/secrets/provider-key.json"
 cat > "$tmp/marketplace.sh" <<'STANDIN'
 #!/usr/bin/env bash
-[ -n "$MARKETPLACE_STATUS" ] || { echo "no provider key" >&2; exit 1; }
+[ -n "$MARKETPLACE_STATUS" ] || { printf '%s\n' "your node is not answering: is it running? (docker compose ps)" "  fetch failed" >&2; exit 1; }
 printf '%s\n' "$MARKETPLACE_STATUS"
 STANDIN
 chmod +x "$tmp/marketplace.sh"
@@ -269,9 +269,12 @@ MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status --json 
 # A note after the object does not stop the script: the object is the
 # last line that is one.
 MARKETPLACE_STATUS=$(printf '%s\n%s' "$pool" "a note after the object") status | grep -q 'overall: *NOT SERVING YET'
-# The records out of reach: the verdict says so instead of guessing.
+# The records out of reach: the verdict says so instead of guessing, and
+# everything the command printed is under the pool line.
 status > "$tmp/out"
-grep -q 'pool: *marketplace status could not run — no provider key' "$tmp/out"
+grep -q 'pool: *marketplace status could not run:$' "$tmp/out"
+grep -q '^ *your node is not answering: is it running? (docker compose ps)$' "$tmp/out"
+grep -q '^ *fetch failed$' "$tmp/out"
 grep -q 'next: *cannot tell' "$tmp/out"
 kill "$local_node" "$reference"; wait 2>/dev/null || true
 trap - EXIT

@@ -71,6 +71,18 @@ jfield(){ # jfield <name>  — first string/bool value of "name" on stdin
 }
 hex2dec(){ printf '%d' "$((16#${1#0x}))"; }
 
+# ---- Pool, started first ----------------------------------------------------
+# The marketplace records come from marketplace.sh status in its
+# container, which takes seconds to start: it runs while the local
+# checks and the reference requests go on, and is read once they are
+# done. Nothing to read before a key exists.
+pool_file='' pool_pid=''
+if [ -f secrets/provider-key.json ]; then
+  pool_file=$(mktemp)
+  ./marketplace.sh status >"$pool_file" 2>&1 &
+  pool_pid=$!
+fi
+
 # ---- Local EL node -----------------------------------------------------------
 if ! head_json=$(rpc "$EL" eth_getBlockByNumber '["latest",false]'); then
   printf 'local RPC not answering at %s — is the node running? (docker compose ps)\n' "$EL" >&2
@@ -167,16 +179,98 @@ if ref_json=$(rpc "$OFFICIAL_RPC" eth_getBlockByNumber '["latest",false]'); then
   fi
 fi
 
+# ---- Report, the node's part -----------------------------------------------
+# Printed before the pool is waited for, so the wait is not a pause.
+if [ "$JSON" != 1 ]; then
+  # Color only on a terminal, and never when NO_COLOR is set.
+  red='' green='' yellow='' reset=''
+  if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    red=$'\e[31m' green=$'\e[32m' yellow=$'\e[33m' reset=$'\e[0m'
+  fi
+  # State glyphs in front of every judged line. Color alone does not
+  # survive NO_COLOR, a pipe, or a colorblind reader; the glyph does.
+  # Lines that only report (head, peers) and guidance under a judged line
+  # keep the column blank. ASCII where the locale is not UTF-8.
+  case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+    *[Uu][Tt][Ff]*) g_ok='✓' g_warn='!' g_fail='✗';;
+    *)              g_ok='+' g_warn='!' g_fail='x';;
+  esac
+
+  if [ "$chain_ok" = true ]; then
+    printf '%s chain id:   %s (matches the network artifacts)\n' "$g_ok" "$(hex2dec "$chain_hex")"
+  else
+    printf '%s%s chain id:   %s — EXPECTED %s: wrong network!%s\n' "$red" "$g_fail" "$(hex2dec "$chain_hex")" "$CHAIN_ID" "$reset"
+    printf '              check NETWORK (or NETWORK_DIR) in .env; to switch networks:\n'
+    printf '              ./setup.sh --wipe\n'
+  fi
+  printf '  local head: #%s %s (age %ss)\n' "$local_head" "$local_hash" "$age"
+  # The manifest the first sync restored from, kept by the restore.
+  if [ -f .setup-state/snapshot.json ]; then
+    printf '  started:    from snapshot %s at block #%s\n' \
+      "$(jfield run < .setup-state/snapshot.json)" "$(jfield block < .setup-state/snapshot.json)"
+  fi
+  printf '  execution:  peers %s\n' "$el_peers"
+  if [ "$b_syncing" = unknown ]; then
+    printf '%s%s beacon:     not answering at %s — is it running? (docker compose ps)%s\n' "$red" "$g_fail" "$CL" "$reset"
+  elif [ "$cl_peers" = 0 ]; then
+    printf '%s%s beacon:     syncing=%s optimistic=%s el_offline=%s, peers 0%s\n' \
+      "$red" "$g_fail" "$b_syncing" "$b_optimistic" "$b_el_offline" "$reset"
+    printf '  warning:    the beacon has no peers — new blocks cannot arrive\n'
+    printf '              try: docker compose restart consensus\n'
+    printf '              still 0 after a few minutes? the network endpoints may have\n'
+    printf '              moved: ./setup.sh --refresh\n'
+  else
+    printf '%s beacon:     syncing=%s optimistic=%s el_offline=%s, peers %s\n' \
+      "$g_ok" "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers"
+  fi
+  if [ "$restarting" = true ]; then
+    printf '%s%s warning:    container restarts — execution %s, consensus %s%s\n' "$yellow" "$g_warn" "$el_restarts" "$cl_restarts" "$reset"
+    printf '              a crash loop can look like a slow sync; if the count grows and\n'
+    printf "              the logs show no error, check: dmesg | grep -i 'out of memory'\n"
+  fi
+  if [ "$tunnel_on" = 1 ]; then
+    case "$tunnel_state" in
+      running)      printf '%s tunnel:     connected, proxy running\n' "$g_ok";;
+      disconnected) printf '%s%s tunnel:     not connected to the tunnel server%s\n' "$red" "$g_fail" "$reset"
+                    printf '              the client log has the reason: docker compose logs --tail 5 tunnel\n';;
+      unreachable)  printf '%s%s tunnel:     status endpoint not answering — is the tunnel service running? (docker compose ps)%s\n' "$red" "$g_fail" "$reset";;
+      *)            printf '%s%s tunnel:     proxy %s%s%s\n' "$red" "$g_fail" "$tunnel_state" "${tunnel_err:+ — $tunnel_err}" "$reset";;
+    esac
+  fi
+  case "$ref_state" in
+    reachable)
+      case "$hashes_match" in
+        true)    printf '%s reference:  head #%s — hashes match at #%s\n' "$g_ok" "$ref_head" "$min";;
+        false)   printf '%s%s reference:  head #%s — HASH MISMATCH at #%s — local %s vs reference %s%s\n' "$red" "$g_fail" "$ref_head" "$min" "$local_min_hash" "$ref_hash" "$reset"
+                 printf '              a brief fork at the head can cause this — re-run to check\n'
+                 printf '              if it persists, this node followed a different chain and must\n'
+                 printf '              resync: ./setup.sh --refresh --wipe\n';;
+        unknown) printf '%s%s reference:  head #%s — hash comparison unavailable (request failed)%s\n' "$yellow" "$g_warn" "$ref_head" "$reset";;
+      esac
+      if [ "$hashes_match" = true ]; then
+        if [ "$ref_head" -gt "$local_head" ]; then
+          printf '%s%s note:       behind the reference by %s blocks%s\n' "$yellow" "$g_warn" "$(( ref_head - local_head ))" "$reset"
+        elif [ "$age" -gt 60 ]; then
+          printf '%s%s note:       level with the reference, but the chain is quiet for %ss%s\n' "$yellow" "$g_warn" "$age" "$reset"
+        fi
+      fi;;
+    unreachable)
+      printf '%s%s reference:  unreachable — local view only (not a local problem)%s\n' "$yellow" "$g_warn" "$reset";;
+  esac
+fi
+
 # ---- Pool ------------------------------------------------------------------
-# Where this node stands with the load balancer: the marketplace records,
-# read by marketplace.sh status in its container as one line of JSON
-# (flat, a field per fact, null where there is nothing). Nothing to read
-# before a key exists; the first step is then the key.
+# Where this node stands with the load balancer: the marketplace records
+# as one line of JSON (flat, a field per fact, null where there is
+# nothing), from the run started first. Without a key the first step is
+# the key.
 pool_next=create-key pool_json='' pool_out=''
-if [ -f secrets/provider-key.json ]; then
+if [ -n "$pool_pid" ]; then
   # The object is the last line that is one: the container runtime may
   # print around it.
-  pool_out=$(./marketplace.sh status 2>&1) && pool_json=$(printf '%s\n' "$pool_out" | grep '^{' | tail -1 || true)
+  wait "$pool_pid" && pool_json=$(grep '^{' "$pool_file" | tail -1 || true)
+  pool_out=$(cat "$pool_file")
+  rm -f "$pool_file"
   if [ -n "$pool_json" ]; then
     pool_next=$(printf '%s' "$pool_json" | jfield next || printf unknown)
   else
@@ -295,81 +389,6 @@ if [ "$JSON" = 1 ]; then
     "$el_restarts" "$cl_restarts" \
     "$tunnel_state" "$ref_state" "${ref_head:-null}" "$hashes_match" "$(pf count)" "$pool_err_json"
 else
-  # Color only on a terminal, and never when NO_COLOR is set.
-  red='' green='' yellow='' reset=''
-  if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
-    red=$'\e[31m' green=$'\e[32m' yellow=$'\e[33m' reset=$'\e[0m'
-  fi
-  # State glyphs in front of every judged line. Color alone does not
-  # survive NO_COLOR, a pipe, or a colorblind reader; the glyph does.
-  # Lines that only report (head, peers) and guidance under a judged line
-  # keep the column blank. ASCII where the locale is not UTF-8.
-  case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
-    *[Uu][Tt][Ff]*) g_ok='✓' g_warn='!' g_fail='✗';;
-    *)              g_ok='+' g_warn='!' g_fail='x';;
-  esac
-
-  if [ "$chain_ok" = true ]; then
-    printf '%s chain id:   %s (matches the network artifacts)\n' "$g_ok" "$(hex2dec "$chain_hex")"
-  else
-    printf '%s%s chain id:   %s — EXPECTED %s: wrong network!%s\n' "$red" "$g_fail" "$(hex2dec "$chain_hex")" "$CHAIN_ID" "$reset"
-    printf '              check NETWORK (or NETWORK_DIR) in .env; to switch networks:\n'
-    printf '              ./setup.sh --wipe\n'
-  fi
-  printf '  local head: #%s %s (age %ss)\n' "$local_head" "$local_hash" "$age"
-  # The manifest the first sync restored from, kept by the restore.
-  if [ -f .setup-state/snapshot.json ]; then
-    printf '  started:    from snapshot %s at block #%s\n' \
-      "$(jfield run < .setup-state/snapshot.json)" "$(jfield block < .setup-state/snapshot.json)"
-  fi
-  printf '  execution:  peers %s\n' "$el_peers"
-  if [ "$b_syncing" = unknown ]; then
-    printf '%s%s beacon:     not answering at %s — is it running? (docker compose ps)%s\n' "$red" "$g_fail" "$CL" "$reset"
-  elif [ "$cl_peers" = 0 ]; then
-    printf '%s%s beacon:     syncing=%s optimistic=%s el_offline=%s, peers 0%s\n' \
-      "$red" "$g_fail" "$b_syncing" "$b_optimistic" "$b_el_offline" "$reset"
-    printf '  warning:    the beacon has no peers — new blocks cannot arrive\n'
-    printf '              try: docker compose restart consensus\n'
-    printf '              still 0 after a few minutes? the network endpoints may have\n'
-    printf '              moved: ./setup.sh --refresh\n'
-  else
-    printf '%s beacon:     syncing=%s optimistic=%s el_offline=%s, peers %s\n' \
-      "$g_ok" "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers"
-  fi
-  if [ "$restarting" = true ]; then
-    printf '%s%s warning:    container restarts — execution %s, consensus %s%s\n' "$yellow" "$g_warn" "$el_restarts" "$cl_restarts" "$reset"
-    printf '              a crash loop can look like a slow sync; if the count grows and\n'
-    printf "              the logs show no error, check: dmesg | grep -i 'out of memory'\n"
-  fi
-  if [ "$tunnel_on" = 1 ]; then
-    case "$tunnel_state" in
-      running)      printf '%s tunnel:     connected, proxy running\n' "$g_ok";;
-      disconnected) printf '%s%s tunnel:     not connected to the tunnel server%s\n' "$red" "$g_fail" "$reset"
-                    printf '              the client log has the reason: docker compose logs --tail 5 tunnel\n';;
-      unreachable)  printf '%s%s tunnel:     status endpoint not answering — is the tunnel service running? (docker compose ps)%s\n' "$red" "$g_fail" "$reset";;
-      *)            printf '%s%s tunnel:     proxy %s%s%s\n' "$red" "$g_fail" "$tunnel_state" "${tunnel_err:+ — $tunnel_err}" "$reset";;
-    esac
-  fi
-  case "$ref_state" in
-    reachable)
-      case "$hashes_match" in
-        true)    printf '%s reference:  head #%s — hashes match at #%s\n' "$g_ok" "$ref_head" "$min";;
-        false)   printf '%s%s reference:  head #%s — HASH MISMATCH at #%s — local %s vs reference %s%s\n' "$red" "$g_fail" "$ref_head" "$min" "$local_min_hash" "$ref_hash" "$reset"
-                 printf '              a brief fork at the head can cause this — re-run to check\n'
-                 printf '              if it persists, this node followed a different chain and must\n'
-                 printf '              resync: ./setup.sh --refresh --wipe\n';;
-        unknown) printf '%s%s reference:  head #%s — hash comparison unavailable (request failed)%s\n' "$yellow" "$g_warn" "$ref_head" "$reset";;
-      esac
-      if [ "$hashes_match" = true ]; then
-        if [ "$ref_head" -gt "$local_head" ]; then
-          printf '%s%s note:       behind the reference by %s blocks%s\n' "$yellow" "$g_warn" "$(( ref_head - local_head ))" "$reset"
-        elif [ "$age" -gt 60 ]; then
-          printf '%s%s note:       level with the reference, but the chain is quiet for %ss%s\n' "$yellow" "$g_warn" "$age" "$reset"
-        fi
-      fi;;
-    unreachable)
-      printf '%s%s reference:  unreachable — local view only (not a local problem)%s\n' "$yellow" "$g_warn" "$reset";;
-  esac
   if [ "$pool_next" = unknown ]; then
     # Everything the command printed, as it printed it.
     printf '%s%s pool:       marketplace status could not run:%s\n' "$yellow" "$g_warn" "$reset"

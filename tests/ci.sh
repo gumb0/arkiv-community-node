@@ -265,7 +265,7 @@ grep -q '^ *Payouts: 1 receipt, 0.25 GLM in total; last transfer 0x925d on chain
 MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status > "$tmp/out"
 grep -q 'overall: *SERVING' "$tmp/out"
 MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status --json | grep -q '"serving":true,"next":null'
-MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status --json | grep -q '"pool":{"count":48213}'
+MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status --json | grep -q '"pool":{"count":48213,"error":null}'
 # A note after the object does not stop the script: the object is the
 # last line that is one.
 MARKETPLACE_STATUS=$(printf '%s\n%s' "$pool" "a note after the object") status | grep -q 'overall: *NOT SERVING YET'
@@ -281,6 +281,8 @@ grep -q 'pool: *marketplace status could not run:$' "$tmp/out"
 grep -q '^ *your node is not answering: is it running? (docker compose ps)$' "$tmp/out"
 grep -q '^ *fetch failed$' "$tmp/out"
 grep -q 'next: *cannot tell' "$tmp/out"
+status --json | grep -q '"next":"unknown"'
+status --json | grep -q '"pool":{"count":null,"error":"your node is not answering: is it running? (docker compose ps) fetch failed"}'
 kill "$local_node" "$reference"; wait 2>/dev/null || true
 trap - EXIT
 rm -rf "$tmp"

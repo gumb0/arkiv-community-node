@@ -284,11 +284,16 @@ fi
 if [ "$JSON" = 1 ]; then
   next_json=null
   [ "$next" = null ] || next_json="\"$next\""
-  printf '{"ok":%s,"ready":%s,"serving":%s,"next":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"restarts":{"execution":%s,"consensus":%s},"tunnel":"%s","reference":{"state":"%s","head":%s,"hashes_match":"%s"},"pool":{"count":%s}}\n' \
+  # What the command printed, on one line, when it could not be read.
+  pool_err_json=null
+  if [ "$pool_next" = unknown ]; then
+    pool_err_json="\"$(printf '%s' "$pool_out" | tr -s '[:space:]' ' ' | sed 's/ $//; s/[\\"]/\\&/g')\""
+  fi
+  printf '{"ok":%s,"ready":%s,"serving":%s,"next":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"restarts":{"execution":%s,"consensus":%s},"tunnel":"%s","reference":{"state":"%s","head":%s,"hashes_match":"%s"},"pool":{"count":%s,"error":%s}}\n' \
     "$ok" "$ready" "$serving" "$next_json" "$chain_ok" "$local_head" "$local_hash" "$age" "$el_peers" \
     "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers" \
     "$el_restarts" "$cl_restarts" \
-    "$tunnel_state" "$ref_state" "${ref_head:-null}" "$hashes_match" "$(pf count)"
+    "$tunnel_state" "$ref_state" "${ref_head:-null}" "$hashes_match" "$(pf count)" "$pool_err_json"
 else
   # Color only on a terminal, and never when NO_COLOR is set.
   red='' green='' yellow='' reset=''

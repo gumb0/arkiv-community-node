@@ -92,54 +92,6 @@ community endpoint only after
 and its age, peer counts, and whether your view matches the network's
 official RPC. It tells you what to do when something is wrong.
 
-## Everyday commands
-
-```bash
-docker compose ps                              # health at a glance
-docker compose stop                            # stop the node (data kept)
-docker compose up -d                           # start it again
-docker compose restart consensus               # restart one service
-docker compose logs -f --no-log-prefix execution   # follow one service's logs
-docker system df                               # how much disk Docker uses
-./status.sh                                    # chain-level view
-./setup.sh --refresh                           # update from the network registry
-```
-
-## Endpoints (this host only)
-
-Both APIs answer on loopback only — they are not reachable from the
-internet:
-
-- JSON-RPC: `http://127.0.0.1:8545` (port: `EL_RPC_PORT` in `.env`)
-- Beacon API: `http://127.0.0.1:5052` (port: `CL_HTTP_PORT`)
-
-## Serving through a tunnel
-
-A node behind NAT serves its JSON-RPC to the load balancer through a
-tunnel. The tunnel is part of joining the marketplace: once your offer
-is accepted, `./marketplace.sh start-tunnel` writes the tunnel settings
-into `.env` from your agreement, turns the `tunnel` profile on, and
-runs `./setup.sh`, which starts one more container, the tunnel client
-([frp](https://github.com/fatedier/frp), pinned and checksum-verified
-at build). It connects out to the tunnel server with a token signed by
-your provider key; your RPC then answers on that server at the port
-your agreement assigns. Nothing on your own machine is opened to the
-internet, and the tunnel survives restarts on either side without your
-help. The token is written into `.env` and the rendered tunnel config;
-anyone who has it can connect a tunnel as your node and serve in your
-name, so keep those files as private as the key.
-
-If the tunnel server turns the client away, the reason is in the
-client's log (`docker compose logs tunnel`), in plain words: the
-agreement it names is unknown, the token was not signed by the key
-that posted the offer, or the port is not the assigned one. Run
-`./status.sh` to see your agreement, and `start-tunnel` again after
-it changed.
-
-To stop tunneling, remove `tunnel` from `COMPOSE_PROFILES` in `.env` and
-re-run `./setup.sh` — it stops the tunnel container. A "network is in
-use" warning is expected — the node's containers keep using the network.
-
 ## Joining the community pool
 
 Your node serves the community endpoint, and is paid for it, only after
@@ -176,7 +128,7 @@ nothing is installed on your machine.
      between claims.
 
    Your node shows the new balance once it has synced past the claim
-   (`./status.sh`, the first line under "pool"). This GLM pays gas on the
+   (`./status.sh`, the Key line under "pool"). This GLM pays gas on the
    Arkiv chain only; payouts arrive separately, on the payout chain.
 
 2. **Offer your node.** With the node synced and the key funded:
@@ -206,24 +158,68 @@ nothing is installed on your machine.
    counted for you as last written by the load balancer, the closed
    counts awaiting payout, and the payouts received. Payouts are made
    in GLM to your provider key, on the payout chain the receipt names.
-   An agreement that ended and was made again has a new id and may have
-   a new port: `status` says so, and `start-tunnel` again moves the
-   tunnel to it.
 
-4. **Connect.** Once `status` shows an agreement:
+4. **Connect.** Once `./status.sh` shows an agreement:
 
    ```bash
    ./marketplace.sh start-tunnel
    ```
 
-   It signs your agreement id with your key, writes the tunnel settings
-   into `.env`, and starts the tunnel client (see "Serving through a
-   tunnel" below). Your node then serves requests from the load
-   balancer and is paid for them; `status` shows the count growing.
+   Your node serves its JSON-RPC to the load balancer through a tunnel,
+   so nothing on your machine is opened to the internet and a node
+   behind NAT works like any other. `start-tunnel` signs your agreement
+   id with your key, writes the tunnel settings into `.env`, turns the
+   `tunnel` profile on, and runs `./setup.sh`, which starts one more
+   container, the tunnel client
+   ([frp](https://github.com/fatedier/frp), pinned and checksum-verified
+   at build). It connects out to the tunnel server with the signed
+   token; your RPC then answers on that server at the port your
+   agreement assigns. The tunnel survives restarts on either side
+   without your help. The token is written into `.env` and the rendered
+   tunnel config; anyone who has it can connect a tunnel as your node
+   and serve in your name, so keep those files as private as the key.
+
+   Your node then serves requests from the load balancer and is paid
+   for them; `./status.sh` says SERVING and shows the count growing.
+
+   If the tunnel server turns the client away, the reason is in the
+   client's log (`docker compose logs tunnel`), in plain words: the
+   agreement it names is unknown, the token was not signed by the key
+   that posted the offer, or the port is not the assigned one. Run
+   `./status.sh` to see your agreement, and `start-tunnel` again after
+   it changed. An agreement that ended and was made again has a new id
+   and may have a new port: `./status.sh` says so, and `start-tunnel`
+   again moves the tunnel to it.
+
+   To stop tunneling, remove `tunnel` from `COMPOSE_PROFILES` in `.env`
+   and re-run `./setup.sh` — it stops the tunnel container. A "network
+   is in use" warning is expected — the node's containers keep using the
+   network.
 
 Your key is also your payout key: payouts are GLM transfers to its
 address on the payout chain the receipt names. To move them, import
 `secrets/provider-key.json` into a wallet that reads keystore files.
+
+## Everyday commands
+
+```bash
+docker compose ps                              # health at a glance
+docker compose stop                            # stop the node (data kept)
+docker compose up -d                           # start it again
+docker compose restart consensus               # restart one service
+docker compose logs -f --no-log-prefix execution   # follow one service's logs
+docker system df                               # how much disk Docker uses
+./status.sh                                    # chain-level view
+./setup.sh --refresh                           # update from the network registry
+```
+
+## Endpoints (this host only)
+
+Both APIs answer on loopback only — they are not reachable from the
+internet:
+
+- JSON-RPC: `http://127.0.0.1:8545` (port: `EL_RPC_PORT` in `.env`)
+- Beacon API: `http://127.0.0.1:5052` (port: `CL_HTTP_PORT`)
 
 ## Getting alerted (optional)
 

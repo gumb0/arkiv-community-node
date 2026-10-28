@@ -22,7 +22,7 @@ describe("the shipped addresses", () => {
 
   it("refuse a chain nobody ships an address for, naming the override", () => {
     throws(() => lbAddress(1, SHIPPED, undefined), /chain 1; set LB_ADDRESS/)
-    equal(settleAddress(1, SHIPPED, undefined), undefined)
+    throws(() => settleAddress(1, SHIPPED, undefined), /chain 1; set SETTLE_ADDRESS/)
   })
 
   it("take the .env override first, checksummed", () => {
@@ -55,12 +55,13 @@ describe("the shipped addresses", () => {
     deepEqual(settlePreviousAddresses(7, file, ""), [LB], "empty is unset, the shipped list stands")
   })
 
-  it("has none for a chain that ships only a load balancer", () => {
-    // Payouts start later than the marketplace does: a provider's
-    // status says so rather than showing nothing.
+  it("refuses a chain that ships only a load balancer", () => {
+    // Every chain the marketplace runs on pays out, so a settle key
+    // belongs beside the load balancer's; a private deployment names
+    // one in .env.
     const dir = mkdtempSync(join(tmpdir(), "addresses-"))
     const file = join(dir, "addresses.json")
     writeFileSync(file, JSON.stringify({ "7": { lb: LB } }))
-    equal(settleAddress(7, file, undefined), undefined)
+    throws(() => settleAddress(7, file, undefined), /chain 7; set SETTLE_ADDRESS/)
   })
 })

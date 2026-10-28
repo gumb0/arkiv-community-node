@@ -26,7 +26,7 @@ const usage = `usage: marketplace <command>
 
   create-key    create your provider key (once)
   post-offer    offer your node to the load balancer
-  status        your offer, agreement, counts and payouts
+  status        the records as one line of JSON, what ./status.sh renders
   start-tunnel  sign your tunnel token and write the tunnel settings
 `
 
@@ -69,16 +69,16 @@ async function startTunnelCommand(): Promise<void> {
 async function statusCommand(): Promise<void> {
   const me = await myAddress()
   const reader = await fromNode(() => connectReader(EL_URL))
-  await status({
+  const facts = await status({
     reader,
-    syncing: await fromNode(() => nodeSyncing(CL_URL)),
     lb: lbAddress(reader.chainId, ADDRESSES),
     settle: settleAddress(reader.chainId, ADDRESSES),
     settlePrevious: settlePreviousAddresses(reader.chainId, ADDRESSES),
     me,
     tunnel: tunnelSettings(),
-    print: (line) => console.log(line),
   })
+  // One line, for status.sh, which knows the node's own sync state.
+  console.log(JSON.stringify(facts))
 }
 
 /** The tunnel settings .env holds, passed in by compose; none before start-tunnel. */

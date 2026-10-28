@@ -416,5 +416,8 @@ Started. To verify:
   ./status.sh                       # chain-level view: right chain, current head
   docker compose logs -f execution  # watch the sync progress
 
+Synced is not serving: to join the community pool, see "Joining the
+community pool" in the README.
+
 To update later: ./setup.sh --refresh
 EOF

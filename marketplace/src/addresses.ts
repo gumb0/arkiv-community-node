@@ -26,16 +26,15 @@ export function lbAddress(chainId: number, file: string, override = process.env.
   return getAddress(entry.lb)
 }
 
-/** The settle address, or none while no payouts are made on this chain. */
-export function settleAddress(
-  chainId: number,
-  file: string,
-  override = process.env.SETTLE_ADDRESS,
-): Hex | undefined {
+/** The settle key's address: shipped per chain, or SETTLE_ADDRESS for a private deployment. */
+export function settleAddress(chainId: number, file: string, override = process.env.SETTLE_ADDRESS): Hex {
   if (override) return getAddress(override)
   const shipped = JSON.parse(readFileSync(file, "utf8")) as Shipped
   const settle = shipped[String(chainId)]?.settle
-  return settle ? getAddress(settle) : undefined
+  if (!settle) {
+    throw new Error(`no settle address is shipped for chain ${chainId}; set SETTLE_ADDRESS in .env`)
+  }
+  return getAddress(settle)
 }
 
 /** The addresses of earlier settle keys, after a rotation; none most of the time. */

@@ -2,7 +2,7 @@
 # Joining the community RPC marketplace, one command per step. Each
 # command runs in the marketplace container from the compose stack, as
 # your own user, so the files it writes are yours. See the README,
-# "Joining the marketplace".
+# "Joining the community pool".
 set -euo pipefail
 
 usage() {
@@ -11,7 +11,7 @@ usage: ./marketplace.sh <command>
 
   create-key    create your provider key (once)
   post-offer    offer your node to the load balancer
-  status        your offer, agreement, counts and payouts
+  status        the records as JSON; ./status.sh shows them
   start-tunnel  connect your node once the offer is accepted
 USAGE
 }

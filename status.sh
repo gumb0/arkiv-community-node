@@ -11,16 +11,21 @@ Chain-level truth about this node, checked on demand. Answers what the
 health badges cannot: am I on the right chain, am I current, does my view
 match the official reference? Makes at most two requests to the (metered)
 official RPC per run; everything else is local. When the tunnel profile
-is enabled, also checks that the tunnel is up.
+is enabled, also checks that the tunnel is up. Once a provider key
+exists, reads where the node stands with the load balancer through
+./marketplace.sh status and shows it under "pool".
 
   --json   one-line JSON instead of the report
 
-The verdict is READY (current and serving), SYNCING (no fault, still
-catching up; post an offer only once it says READY), or NEEDS ATTENTION.
+The verdict is SERVING (current, and the tunnel is connected for your
+agreement), NOT SERVING YET (current; the line under it names the next
+step towards the community pool), SYNCING (no fault, still catching up),
+or NEEDS ATTENTION.
 
 Exit code: 0 = both clients answering, right chain, and matching the
 reference RPC (or reference unreachable — a reference outage is not a local
-problem), READY or SYNCING. 1 = something needs attention.
+problem): SERVING, NOT SERVING YET or SYNCING. 1 = something needs
+attention.
 EOF
 }
 
@@ -65,6 +70,18 @@ jfield(){ # jfield <name>  — first string/bool value of "name" on stdin
   tr -d '\n\r' | grep -o "\"$1\": *\"\?[^\",}]*" | head -1 | sed 's/.*: *"\?//'
 }
 hex2dec(){ printf '%d' "$((16#${1#0x}))"; }
+
+# ---- Pool, started first ----------------------------------------------------
+# The marketplace records come from marketplace.sh status in its
+# container, which takes seconds to start: it runs while the local
+# checks and the reference requests go on, and is read once they are
+# done. Nothing to read before a key exists.
+pool_file='' pool_pid=''
+if [ -f secrets/provider-key.json ]; then
+  pool_file=$(mktemp)
+  ./marketplace.sh status >"$pool_file" 2>&1 &
+  pool_pid=$!
+fi
 
 # ---- Local EL node -----------------------------------------------------------
 if ! head_json=$(rpc "$EL" eth_getBlockByNumber '["latest",false]'); then
@@ -162,34 +179,9 @@ if ref_json=$(rpc "$OFFICIAL_RPC" eth_getBlockByNumber '["latest",false]'); then
   fi
 fi
 
-# ---- Verdict ---------------------------------------------------------------
-# Local faults fail the verdict; a reference problem never does. Syncing
-# and optimistic are normal transient states, reported but not faults.
-ok=true
-[ "$chain_ok" = true ] || ok=false
-[ "$hashes_match" = false ] && ok=false
-[ "$b_syncing" = unknown ] && ok=false      # the beacon node is not answering
-[ "$b_el_offline" = true ] && ok=false      # the two clients are not talking
-[ "$cl_peers" = 0 ] && ok=false             # no peers: new blocks cannot arrive
-                                            # ("unknown" is not a fault — only a
-                                            # confirmed zero is)
-if [ "$tunnel_state" != off ] && [ "$tunnel_state" != running ]; then
-  ok=false
-fi
-# Ready to serve current data: no fault, and the beacon node's own view,
-# the same three flags as the consensus badge, says it is current.
-ready=false
-if [ "$ok" = true ] && [ "$b_syncing" = false ] && [ "$b_optimistic" = false ] && [ "$b_el_offline" = false ]; then
-  ready=true
-fi
-
-if [ "$JSON" = 1 ]; then
-  printf '{"ok":%s,"ready":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"restarts":{"execution":%s,"consensus":%s},"tunnel":"%s","reference":{"state":"%s","head":%s,"hashes_match":"%s"}}\n' \
-    "$ok" "$ready" "$chain_ok" "$local_head" "$local_hash" "$age" "$el_peers" \
-    "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers" \
-    "$el_restarts" "$cl_restarts" \
-    "$tunnel_state" "$ref_state" "${ref_head:-null}" "$hashes_match"
-else
+# ---- Report, the node's part -----------------------------------------------
+# Printed before the pool is waited for, so the wait is not a pause.
+if [ "$JSON" != 1 ]; then
   # Color only on a terminal, and never when NO_COLOR is set.
   red='' green='' yellow='' reset=''
   if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -265,10 +257,165 @@ else
     unreachable)
       printf '%s%s reference:  unreachable — local view only (not a local problem)%s\n' "$yellow" "$g_warn" "$reset";;
   esac
+fi
+
+# ---- Pool ------------------------------------------------------------------
+# Where this node stands with the load balancer: the marketplace records
+# as one line of JSON (flat, a field per fact, null where there is
+# nothing), from the run started first. Without a key the first step is
+# the key.
+pool_next=create-key pool_json='' pool_out=''
+if [ -n "$pool_pid" ]; then
+  # The object is the last line that is one: the container runtime may
+  # print around it.
+  wait "$pool_pid" && pool_json=$(grep '^{' "$pool_file" | tail -1 || true)
+  pool_out=$(cat "$pool_file")
+  rm -f "$pool_file"
+  if [ -n "$pool_json" ]; then
+    pool_next=$(printf '%s' "$pool_json" | jfield next || printf unknown)
+  else
+    pool_next=unknown
+  fi
+fi
+pf(){ # pf <fact> — one of the pool's fields, "null" when it is not there
+  local value
+  value=$(printf '%s' "$pool_json" | jfield "$1" || true)
+  printf '%s' "${value:-null}"
+}
+plural(){ [ "$1" = 1 ] || printf s; }
+about(){ # about <seconds> — "about 3 hours": minutes, hours from two on, days from two on
+  case "$1" in ''|*[!0-9]*) printf 'an unknown time'; return;; esac
+  local m=$(( ($1 + 30) / 60 )) h
+  if [ "$m" -lt 120 ]; then printf 'about %s minute%s' "$m" "$(plural "$m")"; return; fi
+  h=$(( (m + 30) / 60 ))
+  if [ "$h" -lt 48 ]; then printf 'about %s hours' "$h"; return; fi
+  printf 'about %s days' "$(( (h + 12) / 24 ))"
+}
+in_words(){ case "$1" in 0|-*) printf now;; *) printf 'in %s' "$(about "$1")";; esac; }
+ago_words(){ case "$1" in 0|-*) printf 'just now';; *) printf '%s ago' "$(about "$1")";; esac; }
+# The pool's report, one line per fact, in the order of the steps.
+pool_lines=()
+if [ -n "$pool_json" ]; then
+  if [ "$b_syncing" = true ]; then
+    pool_lines+=("the node is still syncing: what follows is what it has seen so far")
+  fi
+  pool_lines+=("Key: $(pf address), $(pf balance_glm) GLM for gas on the Arkiv chain")
+  if [ "$(pf listing_max_providers)" = null ]; then
+    pool_lines+=("Load balancer: no listing on this chain")
+  else
+    pool_lines+=("Load balancer: pays $(pf listing_glm_per_request) GLM per request, $(pf listing_slots_taken) of $(pf listing_max_providers) slots taken")
+  fi
+  if [ "$(pf offer_key)" = null ]; then
+    pool_lines+=("Offer: none")
+  else
+    pool_lines+=("Offer: $(pf offer_key), expires $(in_words "$(pf offer_expires_in_seconds)")")
+  fi
+  if [ "$(pf agreement_key)" = null ]; then
+    pool_lines+=("Agreement: none")
+  else
+    pool_lines+=("Agreement: $(pf agreement_key), tunnel port $(pf agreement_port), $(pf agreement_glm_per_request) GLM per request, expires $(in_words "$(pf agreement_expires_in_seconds)")")
+  fi
+  case "$(pf tunnel_state)" in
+    current) pool_lines+=("Tunnel: configured for this agreement");;
+    other)   pool_lines+=("Tunnel: configured for agreement $(pf tunnel_agreement) on port $(pf tunnel_port), not for this one: run start-tunnel again");;
+    ended)   pool_lines+=("Tunnel: configured for agreement $(pf tunnel_agreement) on port $(pf tunnel_port), which has ended: post a new offer, then run start-tunnel again");;
+    *)       [ "$(pf agreement_key)" = null ] || pool_lines+=("Tunnel: not started yet: run start-tunnel");;
+  esac
+  # The load balancer opens the record at zero and writes the count into
+  # it from time to time: before the first write there is no count yet.
+  if [ "$(pf count)" = null ]; then
+    pool_lines+=("Counting: no open record")
+  elif [ "$(pf count_written_seconds_ago)" = null ]; then
+    pool_lines+=("Counting: record opened $(ago_words "$(pf count_opened_seconds_ago)"), no count written yet (the load balancer writes it from time to time; since block $(pf count_opened_block), record $(pf count_record))")
+  else
+    pool_lines+=("Counting: $(pf count) requests as of the last write, $(ago_words "$(pf count_written_seconds_ago)") (since block $(pf count_opened_block), record $(pf count_record))")
+  fi
+  n=$(pf awaiting_records)
+  if [ "$n" = 0 ]; then
+    pool_lines+=("Awaiting payout: nothing")
+  else
+    pool_lines+=("Awaiting payout: $n closed record$(plural "$n"), $(pf awaiting_requests) requests")
+  fi
+  n=$(pf payouts_receipts)
+  if [ "$n" = 0 ]; then
+    pool_lines+=("Payouts: none yet")
+  else
+    pool_lines+=("Payouts: $n receipt$(plural "$n"), $(pf payouts_total_glm) GLM in total; last transfer $(pf payouts_last_tx) on chain $(pf payouts_last_chain_id)")
+  fi
+fi
+
+# ---- Verdict ---------------------------------------------------------------
+# Local faults fail the verdict; a reference problem never does. Syncing
+# and optimistic are normal transient states, reported but not faults.
+ok=true
+[ "$chain_ok" = true ] || ok=false
+[ "$hashes_match" = false ] && ok=false
+[ "$b_syncing" = unknown ] && ok=false      # the beacon node is not answering
+[ "$b_el_offline" = true ] && ok=false      # the two clients are not talking
+[ "$cl_peers" = 0 ] && ok=false             # no peers: new blocks cannot arrive
+                                            # ("unknown" is not a fault — only a
+                                            # confirmed zero is)
+if [ "$tunnel_state" != off ] && [ "$tunnel_state" != running ]; then
+  ok=false
+fi
+# Ready to serve current data: no fault, and the beacon node's own view,
+# the same three flags as the consensus badge, says it is current.
+ready=false
+if [ "$ok" = true ] && [ "$b_syncing" = false ] && [ "$b_optimistic" = false ] && [ "$b_el_offline" = false ]; then
+  ready=true
+fi
+# Serving: ready, the records say the tunnel is set up for the
+# agreement, and the tunnel is connected. Otherwise the next step; a
+# tunnel that is set up but down is a fault, caught above.
+serving=false next=null
+if [ "$ready" = true ]; then
+  case "$pool_next" in
+    null) if [ "$tunnel_state" = running ]; then serving=true; elif [ "$tunnel_on" = 0 ]; then next=start-tunnel; fi;;
+    *)    next=$pool_next;;
+  esac
+fi
+
+if [ "$JSON" = 1 ]; then
+  next_json=null
+  [ "$next" = null ] || next_json="\"$next\""
+  # What the command printed, on one line, when it could not be read.
+  pool_err_json=null
+  if [ "$pool_next" = unknown ]; then
+    pool_err_json="\"$(printf '%s' "$pool_out" | tr -s '[:space:]' ' ' | sed 's/ $//; s/[\\"]/\\&/g')\""
+  fi
+  printf '{"ok":%s,"ready":%s,"serving":%s,"next":%s,"chain_id_ok":%s,"local_head":%s,"local_hash":"%s","head_age_seconds":%s,"el_peers":%s,"beacon":{"is_syncing":"%s","is_optimistic":"%s","el_offline":"%s","peers":"%s"},"restarts":{"execution":%s,"consensus":%s},"tunnel":"%s","reference":{"state":"%s","head":%s,"hashes_match":"%s"},"pool":{"count":%s,"error":%s}}\n' \
+    "$ok" "$ready" "$serving" "$next_json" "$chain_ok" "$local_head" "$local_hash" "$age" "$el_peers" \
+    "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers" \
+    "$el_restarts" "$cl_restarts" \
+    "$tunnel_state" "$ref_state" "${ref_head:-null}" "$hashes_match" "$(pf count)" "$pool_err_json"
+else
+  if [ "$pool_next" = unknown ]; then
+    # Everything the command printed, as it printed it.
+    printf '%s%s pool:       marketplace status could not run:%s\n' "$yellow" "$g_warn" "$reset"
+    while IFS= read -r line; do printf '              %s\n' "$line"; done <<<"$pool_out"
+  else
+    label='  pool:       '
+    for line in "${pool_lines[@]}"; do
+      printf '%s%s\n' "$label" "$line"
+      label='              '
+    done
+  fi
   if [ "$ok" != true ]; then
     printf '%s%s overall:    NEEDS ATTENTION%s\n' "$red" "$g_fail" "$reset"
+  elif [ "$serving" = true ]; then
+    printf '%s%s overall:    SERVING%s\n' "$green" "$g_ok" "$reset"
   elif [ "$ready" = true ]; then
-    printf '%s%s overall:    READY%s\n' "$green" "$g_ok" "$reset"
+    printf '%s%s overall:    NOT SERVING YET%s\n' "$yellow" "$g_warn" "$reset"
+    case "$next" in
+      create-key)   printf '  next:       create your provider key: ./marketplace.sh create-key\n';;
+      fund)         printf '  next:       get test GLM for your provider key %s\n' "$(pf address)"
+                    printf '              at https://hub.arkiv.network/faucet, then ./marketplace.sh post-offer\n';;
+      no-listing)   printf '  next:       the load balancer has no listing on this chain; nothing to do until it posts one\n';;
+      post-offer)   printf '  next:       offer your node: ./marketplace.sh post-offer\n';;
+      acceptance)   printf '  next:       waiting for the load balancer to accept your offer; then ./marketplace.sh start-tunnel\n';;
+      start-tunnel) printf '  next:       connect the tunnel: ./marketplace.sh start-tunnel\n';;
+      unknown)      printf '  next:       cannot tell: the marketplace records could not be read (pool above)\n';;
+    esac
   else
     printf '%s%s overall:    SYNCING%s\n' "$yellow" "$g_warn" "$reset"
   fi

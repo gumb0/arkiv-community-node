@@ -212,7 +212,9 @@ python3 tests/fake-node.py 18601 100 syncing >/dev/null 2>&1 & local_node=$!
 # A failed check exits the script; the fakes must not outlive it.
 trap 'kill "$reference" "$local_node" 2>/dev/null || true' EXIT
 sleep 1
-status(){ EL_RPC_PORT=18601 CL_HTTP_PORT=18601 COMPOSE_PROFILES='' NO_COLOR=1 "$tmp/status.sh" "$@"; }
+# The tunnel profile is off unless a case turns it on with PROFILES;
+# the caller's own COMPOSE_PROFILES does not reach the script.
+status(){ EL_RPC_PORT=18601 CL_HTTP_PORT=18601 COMPOSE_PROFILES="${PROFILES:-}" NO_COLOR=1 "$tmp/status.sh" "$@"; }
 # A healthy sync is no fault, so the exit code is 0, but it is not ready.
 status --json | grep -q '"ok":true'
 status --json | grep -q '"ready":false'
@@ -223,7 +225,65 @@ kill "$local_node"; wait "$local_node" 2>/dev/null || true
 python3 tests/fake-node.py 18601 1000 >/dev/null 2>&1 & local_node=$!
 sleep 1
 status --json | grep -q '"ready":true'
-status | grep -q 'overall: *READY'
+# Synced without a key: the next step is the key.
+status --json | grep -q '"serving":false,"next":"create-key"'
+status > "$tmp/out"
+grep -q 'overall: *NOT SERVING YET' "$tmp/out"
+grep -q 'next: *create your provider key' "$tmp/out"
+# With a key, the records come from marketplace.sh status as JSON: a
+# stand-in for the wrapper answers from an environment variable, and
+# the script renders the report from the fields.
+mkdir "$tmp/secrets" && : > "$tmp/secrets/provider-key.json"
+cat > "$tmp/marketplace.sh" <<'STANDIN'
+#!/usr/bin/env bash
+[ -n "$MARKETPLACE_STATUS" ] || { printf '%s\n' "your node is not answering: is it running? (docker compose ps)" "  fetch failed" >&2; exit 1; }
+printf '%s\n' "$MARKETPLACE_STATUS"
+STANDIN
+chmod +x "$tmp/marketplace.sh"
+pool='{"address":"0x2121","balance_glm":"0","listing_glm_per_request":null,"listing_slots_taken":null,"listing_max_providers":null,"offer_key":null,"agreement_key":null,"tunnel_state":"unconfigured","count":null,"awaiting_records":0,"payouts_receipts":0,"next":"fund"}'
+MARKETPLACE_STATUS=$pool status > "$tmp/out"
+grep -q 'pool: *Key: 0x2121, 0 GLM for gas' "$tmp/out"
+grep -q '^ *Load balancer: no listing' "$tmp/out"
+grep -q '^ *Offer: none' "$tmp/out"
+grep -q '^ *Agreement: none' "$tmp/out"
+grep -q '^ *Counting: no open record' "$tmp/out"
+grep -q '^ *Payouts: none yet' "$tmp/out"
+grep -q 'next: *get test GLM for your provider key 0x2121' "$tmp/out"
+MARKETPLACE_STATUS=$pool status --json | grep -q '"next":"fund"'
+MARKETPLACE_STATUS=${pool//\"next\":\"fund\"/\"next\":\"no-listing\"} status | grep -q 'next: *the load balancer has no listing'
+# Set up for the agreement and the tunnel connected: serving.
+pool='{"address":"0x2121","balance_glm":"1","listing_glm_per_request":"0.001","listing_slots_taken":7,"listing_max_providers":100,"offer_key":"0x0f","offer_expires_in_seconds":3600,"agreement_key":"0x9c","agreement_port":20007,"agreement_glm_per_request":"0.001","agreement_expires_in_seconds":259200,"tunnel_state":"current","tunnel_agreement":"0x9c","tunnel_port":20007,"count":48213,"count_written_seconds_ago":600,"count_opened_seconds_ago":1800,"count_opened_block":900,"count_record":"0xc1","awaiting_records":1,"awaiting_requests":100,"payouts_receipts":1,"payouts_total_glm":"0.25","payouts_last_tx":"0x925d","payouts_last_chain_id":560048,"next":null}'
+MARKETPLACE_STATUS=$pool status > "$tmp/out"
+grep -q 'overall: *NOT SERVING YET' "$tmp/out"   # the tunnel profile is off
+grep -q 'next: *connect the tunnel' "$tmp/out"
+grep -q '^ *Load balancer: pays 0.001 GLM per request, 7 of 100 slots taken' "$tmp/out"
+grep -q '^ *Offer: 0x0f, expires in about 60 minutes' "$tmp/out"
+grep -q '^ *Agreement: 0x9c, tunnel port 20007, 0.001 GLM per request, expires in about 3 days' "$tmp/out"
+grep -q '^ *Tunnel: configured for this agreement' "$tmp/out"
+grep -q '^ *Counting: 48213 requests as of the last write, about 10 minutes ago (since block 900, record 0xc1)' "$tmp/out"
+grep -q '^ *Awaiting payout: 1 closed record, 100 requests' "$tmp/out"
+grep -q '^ *Payouts: 1 receipt, 0.25 GLM in total; last transfer 0x925d on chain 560048' "$tmp/out"
+MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status > "$tmp/out"
+grep -q 'overall: *SERVING' "$tmp/out"
+MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status --json | grep -q '"serving":true,"next":null'
+MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status --json | grep -q '"pool":{"count":48213,"error":null}'
+# A note after the object does not stop the script: the object is the
+# last line that is one.
+MARKETPLACE_STATUS=$(printf '%s\n%s' "$pool" "a note after the object") status | grep -q 'overall: *NOT SERVING YET'
+# A span the object lacks reads as unknown; a span of zero is "now".
+MARKETPLACE_STATUS='{"address":"0x2121","balance_glm":"1","offer_key":"0x0f","agreement_key":null,"tunnel_state":"unconfigured","count":null,"awaiting_records":0,"payouts_receipts":0,"next":"acceptance"}' status > "$tmp/out"
+grep -q '^ *Offer: 0x0f, expires in an unknown time' "$tmp/out"
+grep -q 'next: *waiting for the load balancer' "$tmp/out"
+MARKETPLACE_STATUS=${pool//\"offer_expires_in_seconds\":3600/\"offer_expires_in_seconds\":0} status | grep -q '^ *Offer: 0x0f, expires now'
+# The records out of reach: the verdict says so instead of guessing, and
+# everything the command printed is under the pool line.
+status > "$tmp/out"
+grep -q 'pool: *marketplace status could not run:$' "$tmp/out"
+grep -q '^ *your node is not answering: is it running? (docker compose ps)$' "$tmp/out"
+grep -q '^ *fetch failed$' "$tmp/out"
+grep -q 'next: *cannot tell' "$tmp/out"
+status --json | grep -q '"next":"unknown"'
+status --json | grep -q '"pool":{"count":null,"error":"your node is not answering: is it running? (docker compose ps) fetch failed"}'
 kill "$local_node" "$reference"; wait 2>/dev/null || true
 trap - EXIT
 rm -rf "$tmp"

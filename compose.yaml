@@ -95,7 +95,7 @@ services:
       start_period: 30s
 
   # The marketplace commands (marketplace.sh; README, "Joining the
-  # marketplace"). Never started by `up`: the script runs one command at
+  # community pool"). Never started by `up`: the script runs one command at
   # a time and the container exits with it. The key file it creates
   # lands in secrets/ on the host.
   marketplace:

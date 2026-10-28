@@ -1,11 +1,11 @@
-// status over a fake chain: each line from the records, and what it
-// says when a record is missing. Run: npm test
+// status over a fake chain: each fact from the records, and what it is
+// when a record is missing. Run: npm test
 
-import { deepStrictEqual as deepEqual, strictEqual as equal, match } from "node:assert/strict"
+import { deepStrictEqual as deepEqual, strictEqual as equal } from "node:assert/strict"
 import { describe, it } from "node:test"
 import { Entity, addr, i32, key, str, type Attributes } from "@arkiv-network/sdk"
 import { stringToBytes, type Hex } from "viem"
-import { status, timeAgo, timeLeft } from "../src/commands/status.ts"
+import { status } from "../src/commands/status.ts"
 import { KIND } from "../src/records.ts"
 import { fakeChain, type Rows } from "./chain.ts"
 
@@ -53,62 +53,89 @@ type Tunnel = { agreement?: string; port?: number } | undefined
 
 const TUNNEL: Tunnel = { agreement: AGREEMENT, port: 20007 }
 
-async function lines(rows: Rows, settle: Hex | undefined, tunnel: Tunnel, settlePrevious: Hex[] = [], syncing = false): Promise<string[]> {
-  const out: string[] = []
-  await status({ reader: fakeChain(rows).reader, syncing, lb: LB, settle, settlePrevious, me: ME, tunnel, print: (line) => out.push(line) })
-  return out
+async function facts(rows: Rows, settle: Hex, tunnel: Tunnel, settlePrevious: Hex[] = []) {
+  return status({ reader: fakeChain(rows).reader, lb: LB, settle, settlePrevious, me: ME, tunnel })
 }
 
 describe("status", () => {
-  it("reads every line from the records", async () => {
-    const out = await lines(rows, SETTLE, TUNNEL)
-    deepEqual(out, [
-      `Key: ${ME}, 1 GLM for gas on the Arkiv chain`,
-      "Load balancer: pays 0.001 GLM per request, 7 of 100 slots taken",
-      `Offer: ${OFFER}, expires in about 60 minutes`,
-      `Agreement: ${AGREEMENT}, tunnel port 20007, 0.001 GLM per request, expires in about 3 days`,
-      "Tunnel: configured for this agreement",
-      `Counting: 48213 requests as of the last write, about 10 minutes ago (since block 900, record ${COUNTER_OPEN})`,
-      "Awaiting payout: 1 closed record, 100 requests",
-      "Payouts: 1 receipt, 0.25 GLM in total; last transfer 0x925d33c7 on chain 560048",
-    ])
+  it("reads every fact from the records", async () => {
+    deepEqual(await facts(rows, SETTLE, TUNNEL), {
+      address: ME,
+      balance_glm: "1",
+      listing_glm_per_request: "0.001",
+      listing_slots_taken: 7,
+      listing_max_providers: 100,
+      offer_key: OFFER,
+      offer_expires_in_seconds: 3600,
+      agreement_key: AGREEMENT,
+      agreement_port: 20007,
+      agreement_glm_per_request: "0.001",
+      agreement_expires_in_seconds: 259200,
+      tunnel_state: "current",
+      tunnel_agreement: AGREEMENT,
+      tunnel_port: 20007,
+      count: 48213,
+      count_written_seconds_ago: 600,
+      count_opened_seconds_ago: 1800,
+      count_opened_block: 900,
+      count_record: COUNTER_OPEN,
+      awaiting_records: 1,
+      awaiting_requests: 100,
+      payouts_receipts: 1,
+      payouts_total_glm: "0.25",
+      payouts_last_tx: "0x925d33c7",
+      payouts_last_chain_id: 560048,
+      next: null,
+    })
   })
 
-  it("says what is missing", async () => {
-    const out = await lines({ balance: 0n }, undefined, undefined)
-    match(out[0]!, /0 GLM for gas on the Arkiv chain/)
-    match(out[1]!, /no listing from/)
-    equal(out[2], "Offer: none")
-    equal(out[3], "Agreement: none")
-    equal(out[4], "Counting: no open record", "no tunnel line without an agreement")
-    equal(out[5], "Awaiting payout: nothing")
-    equal(out[6], "Payouts: no settle address is shipped for this chain yet")
+  it("is null where a record is missing", async () => {
+    const out = await facts({ balance: 0n }, SETTLE, undefined)
+    equal(out.balance_glm, "0")
+    equal(out.listing_max_providers, null)
+    equal(out.listing_slots_taken, null)
+    equal(out.next, "no-listing")
+    equal(out.offer_key, null)
+    equal(out.agreement_key, null)
+    equal(out.tunnel_state, "unconfigured")
+    equal(out.count, null)
+    equal(out.awaiting_records, 0)
+    equal(out.payouts_receipts, 0)
+    equal(out.payouts_total_glm, null)
   })
 
-  it("says when the tunnel is not the agreement's", async () => {
-    const notStarted = await lines(rows, SETTLE, undefined)
-    equal(notStarted[4], "Tunnel: not started yet: run start-tunnel")
+  it("names the next step towards serving, in the order of the steps", async () => {
+    equal((await facts(rows, SETTLE, TUNNEL)).next, null)
+    equal((await facts(rows, SETTLE, undefined)).next, "start-tunnel")
+    equal((await facts(rows, SETTLE, { agreement: `0x${"77".repeat(32)}`, port: 20007 })).next, "start-tunnel")
+    equal((await facts({ ...rows, agreement: [] }, SETTLE, TUNNEL)).next, "acceptance", "an offer waits for acceptance, whatever the tunnel was set up for")
+    equal((await facts({ ...rows, agreement: [], offer: [] }, SETTLE, undefined)).next, "post-offer")
+    equal((await facts({ ...rows, agreement: [], offer: [], balance: 0n }, SETTLE, undefined)).next, "fund")
+    equal((await facts({ ...rows, balance: 0n }, SETTLE, TUNNEL)).next, null, "an agreement needs no gas")
+    equal((await facts({ ...rows, agreement: [], listing: [] }, SETTLE, undefined)).next, "no-listing", "no offer is accepted without a listing")
+    equal((await facts({ ...rows, listing: [] }, SETTLE, TUNNEL)).next, null, "an agreement outlives the listing")
+  })
+
+  it("tells whose agreement the tunnel is set up for", async () => {
+    equal((await facts(rows, SETTLE, undefined)).tunnel_state, "unconfigured")
     const other = `0x${"9d".repeat(32)}`
-    const stale = await lines(rows, SETTLE, { agreement: other, port: 20007 })
-    equal(stale[4], `Tunnel: configured for agreement ${other} on port 20007, not for this one: run start-tunnel again`)
-    const wrongPort = await lines(rows, SETTLE, { agreement: AGREEMENT, port: 20001 })
-    equal(wrongPort[4], `Tunnel: configured for agreement ${AGREEMENT} on port 20001, not for this one: run start-tunnel again`)
-    const upper = await lines(rows, SETTLE, { agreement: AGREEMENT.toUpperCase().replace("0X", "0x"), port: 20007 })
-    equal(upper[4], "Tunnel: configured for this agreement", "case is no difference")
-  })
-
-  it("says when the tunnel is for an agreement that has ended", async () => {
+    equal((await facts(rows, SETTLE, { agreement: other, port: 20007 })).tunnel_state, "other")
+    equal((await facts(rows, SETTLE, { agreement: AGREEMENT, port: 20001 })).tunnel_state, "other", "the port counts too")
+    equal((await facts(rows, SETTLE, { agreement: AGREEMENT.toUpperCase().replace("0X", "0x"), port: 20007 })).tunnel_state, "current", "case is no difference")
     // The agreement record expired while the tunnel kept running: the
     // tunnel is connected but nothing is counted or paid for it.
-    const out = await lines({ ...rows, agreement: [] }, SETTLE, TUNNEL)
-    equal(out[3], "Agreement: none")
-    equal(out[4], `Tunnel: configured for agreement ${AGREEMENT} on port 20007, which has ended: post a new offer, then run start-tunnel again`)
+    const ended = await facts({ ...rows, agreement: [] }, SETTLE, TUNNEL)
+    equal(ended.agreement_key, null)
+    equal(ended.tunnel_state, "ended")
+    equal(ended.tunnel_agreement, AGREEMENT)
   })
 
   it("closed records without a receipt await payout, paid ones do not", async () => {
-    const out = await lines({ ...rows, receipt: [] }, SETTLE, TUNNEL)
-    equal(out[6], "Awaiting payout: 2 closed records, 350 requests")
-    equal(out[7], "Payouts: none yet")
+    const out = await facts({ ...rows, receipt: [] }, SETTLE, TUNNEL)
+    equal(out.awaiting_records, 2)
+    equal(out.awaiting_requests, 350)
+    equal(out.payouts_receipts, 0)
+    equal(out.payouts_last_tx, null)
   })
 
   it("counts a receipt of a previous settle key as a payout, and a stranger's for nothing", async () => {
@@ -126,54 +153,30 @@ describe("status", () => {
     }, 5000n, 300n, stranger)
     const withPrevious = { ...rows, receipt: [...rows.receipt!, byPrevious, byStranger] }
 
-    const out = await lines(withPrevious, SETTLE, TUNNEL, [previous])
-    equal(out[6], "Awaiting payout: nothing")
-    equal(out[7], "Payouts: 2 receipts, 0.35 GLM in total; last transfer 0x0ddba11 on chain 560048")
+    const out = await facts(withPrevious, SETTLE, TUNNEL, [previous])
+    equal(out.awaiting_records, 0)
+    equal(out.payouts_receipts, 2)
+    equal(out.payouts_total_glm, "0.35")
+    equal(out.payouts_last_tx, "0x0ddba11")
 
-    const without = await lines(withPrevious, SETTLE, TUNNEL)
-    equal(without[6], "Awaiting payout: 1 closed record, 100 requests", "an unlisted key's receipt is nobody's")
+    const without = await facts(withPrevious, SETTLE, TUNNEL)
+    equal(without.awaiting_records, 1, "an unlisted key's receipt is nobody's")
+    equal(without.awaiting_requests, 100)
 
     // A list that repeats an address, or names the current key, counts
     // each receipt once.
-    const repeated = await lines(withPrevious, SETTLE, TUNNEL, [previous, previous, SETTLE])
-    equal(repeated[7], out[7])
+    const repeated = await facts(withPrevious, SETTLE, TUNNEL, [previous, previous, SETTLE])
+    equal(repeated.payouts_receipts, 2)
+    equal(repeated.payouts_total_glm, "0.35")
   })
 
-  it("says first when the node is still syncing, then everything as usual", async () => {
-    const out = await lines(rows, SETTLE, TUNNEL, [], true)
-    match(out[0]!, /still syncing/)
-    deepEqual(out.slice(1), await lines(rows, SETTLE, TUNNEL))
-  })
-
-  it("explains the 0 of a record the load balancer has not written since opening it", async () => {
+  it("has no last write for a record the load balancer has not written since opening it", async () => {
     const fresh = record(COUNTER_OPEN, KIND.counter, { agreement: key(AGREEMENT), provider: addr(ME), state: str("open") }, { count: 0, wei_per_call: "1000000000000000", opened_block: 900 }, 5000n, 900n)
-    const out = await lines({ ...rows, counter: [fresh] }, SETTLE, TUNNEL)
-    equal(out[5], `Counting: 0 requests as of the last write, about 3 minutes ago (since block 900, record ${COUNTER_OPEN})`)
-    match(out[6]!, /from time to time/)
-  })
-
-  it("says nothing more about a 0 the load balancer wrote", async () => {
+    const out = await facts({ ...rows, counter: [fresh] }, SETTLE, TUNNEL)
+    equal(out.count, 0)
+    equal(out.count_written_seconds_ago, null)
+    equal(out.count_opened_seconds_ago, 200)
     const zero = record(COUNTER_OPEN, KIND.counter, { agreement: key(AGREEMENT), provider: addr(ME), state: str("open") }, { count: 0, wei_per_call: "1000000000000000", opened_block: 900 }, 5000n, 900n, LB, 950n)
-    const out = await lines({ ...rows, counter: [zero] }, SETTLE, TUNNEL)
-    match(out[5]!, /^Counting: 0 requests as of the last write/)
-    match(out[6]!, /^Awaiting payout/)
-  })
-
-  it("words a time past", () => {
-    equal(timeAgo(0), "just now")
-    equal(timeAgo(90), "about 2 minutes ago")
-    equal(timeAgo(3 * 3600), "about 3 hours ago")
-    equal(timeAgo(2 * 86400), "about 2 days ago")
-  })
-
-  it("words a wait", () => {
-    equal(timeLeft(0), "now")
-    equal(timeLeft(90), "in about 2 minutes")
-    equal(timeLeft(3600), "in about 60 minutes")
-    equal(timeLeft(2 * 3600), "in about 2 hours", "hours from two on")
-    equal(timeLeft(3 * 3600), "in about 3 hours")
-    equal(timeLeft(47 * 3600), "in about 47 hours")
-    equal(timeLeft(2 * 86400), "in about 2 days", "days from two on")
-    equal(timeLeft(3 * 86400), "in about 3 days")
+    equal((await facts({ ...rows, counter: [zero] }, SETTLE, TUNNEL)).count_written_seconds_ago, 100, "a 0 the load balancer wrote is news")
   })
 })

@@ -2,11 +2,34 @@
 // operator types nothing. The execution client answers JSON-RPC, the
 // beacon node its REST API; the hardware is the machine's.
 
+import { readFileSync, readdirSync } from "node:fs"
 import { cpus, totalmem } from "node:os"
+import { join } from "node:path"
 import type { Specs } from "./records.ts"
 
-/** One gibibyte; `totalmem` answers in bytes. */
+/** One gibibyte; the sizes below are in bytes. */
 const GIB = 2 ** 30
+
+/**
+ * The machine's memory in whole GiB, from the memory blocks the kernel
+ * maps (what `lsmem` sums): the installed size less the firmware's share.
+ * The kernel's own total is lower by what the kernel keeps for itself and
+ * puts a 16 GB machine at 15; it is the fallback where a kernel has no
+ * memory blocks.
+ */
+export function installedMemoryGb(sysfs = "/sys/devices/system/memory"): number {
+  let bytes = 0
+  try {
+    const blockSize = parseInt(readFileSync(join(sysfs, "block_size_bytes"), "utf8"), 16)
+    const online = readdirSync(sysfs).filter(
+      (name) => /^memory\d+$/.test(name) && readFileSync(join(sysfs, name, "online"), "utf8").trim() === "1",
+    ).length
+    bytes = blockSize * online
+  } catch {
+    // No memory blocks on this kernel: the fallback below.
+  }
+  return Math.round((bytes > 0 ? bytes : totalmem()) / GIB)
+}
 
 export type NodeFacts = {
   specs: Specs
@@ -53,7 +76,7 @@ export async function readNode(elUrl: string, clUrl: string): Promise<NodeFacts>
       head: Number(head),
       el,
       cl: String(version.version),
-      hw: { cpus: cpus().length, mem_gb: Math.round(totalmem() / GIB) },
+      hw: { cpus: cpus().length, mem_gb: installedMemoryGb() },
     },
     syncing,
   }

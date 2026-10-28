@@ -7,6 +7,9 @@ that.
 
 ## Unreleased
 
+- The offer's `mem_gb` is the machine's memory as the kernel maps it,
+  what `lsmem` sums, so a 16 GB machine posts 16 where it posted 15: the
+  kernel's own total leaves out what the kernel keeps for itself.
 - The execution client gets `ARKIV_STORE_PATH=/data/golemdb`, as the
   network operator's script sets it since 2026-10-27: the directory of
   the Arkiv store that newer client versions run inside the node, in

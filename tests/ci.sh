@@ -266,6 +266,9 @@ MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status > "$tmp
 grep -q 'overall: *SERVING' "$tmp/out"
 MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status --json | grep -q '"serving":true,"next":null'
 MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status --json | grep -q '"pool":{"count":48213}'
+# A note after the object does not stop the script: the object is the
+# last line that is one.
+MARKETPLACE_STATUS=$(printf '%s\n%s' "$pool" "a note after the object") status | grep -q 'overall: *NOT SERVING YET'
 # The records out of reach: the verdict says so instead of guessing.
 status > "$tmp/out"
 grep -q 'pool: *marketplace status could not run — no provider key' "$tmp/out"

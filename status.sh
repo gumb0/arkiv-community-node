@@ -174,15 +174,21 @@ fi
 # before a key exists; the first step is then the key.
 pool_next=create-key pool_json='' pool_err=''
 if [ -f secrets/provider-key.json ]; then
-  if pool_out=$(./marketplace.sh status 2>&1); then
-    pool_json=$(printf '%s\n' "$pool_out" | tail -1)
-    pool_next=$(printf '%s' "$pool_json" | jfield next)
+  # The object is the last line that is one: the container runtime may
+  # print around it.
+  pool_out=$(./marketplace.sh status 2>&1) && pool_json=$(printf '%s\n' "$pool_out" | grep '^{' | tail -1 || true)
+  if [ -n "$pool_json" ]; then
+    pool_next=$(printf '%s' "$pool_json" | jfield next || printf unknown)
   else
     pool_next=unknown
     pool_err=$(printf '%s\n' "$pool_out" | tail -1)
   fi
 fi
-pf(){ printf '%s' "$pool_json" | jfield "$1"; }   # pf <fact> — one of the pool's fields
+pf(){ # pf <fact> — one of the pool's fields, "null" when it is not there
+  local value
+  value=$(printf '%s' "$pool_json" | jfield "$1" || true)
+  printf '%s' "${value:-null}"
+}
 plural(){ [ "$1" = 1 ] || printf s; }
 about(){ # about <seconds> — "about 3 hours": minutes, hours from two on, days from two on
   local m=$(( ($1 + 30) / 60 )) h
@@ -280,7 +286,7 @@ if [ "$JSON" = 1 ]; then
     "$ok" "$ready" "$serving" "$next_json" "$chain_ok" "$local_head" "$local_hash" "$age" "$el_peers" \
     "$b_syncing" "$b_optimistic" "$b_el_offline" "$cl_peers" \
     "$el_restarts" "$cl_restarts" \
-    "$tunnel_state" "$ref_state" "${ref_head:-null}" "$hashes_match" "$(pf count || printf null)"
+    "$tunnel_state" "$ref_state" "${ref_head:-null}" "$hashes_match" "$(pf count)"
 else
   # Color only on a terminal, and never when NO_COLOR is set.
   red='' green='' yellow='' reset=''

@@ -250,6 +250,7 @@ grep -q '^ *Counting: no open record' "$tmp/out"
 grep -q '^ *Payouts: none yet' "$tmp/out"
 grep -q 'next: *get test GLM for your provider key 0x2121' "$tmp/out"
 MARKETPLACE_STATUS=$pool status --json | grep -q '"next":"fund"'
+MARKETPLACE_STATUS=${pool//\"next\":\"fund\"/\"next\":\"no-listing\"} status | grep -q 'next: *the load balancer has no listing'
 # Set up for the agreement and the tunnel connected: serving.
 pool='{"address":"0x2121","balance_glm":"1","listing_glm_per_request":"0.001","listing_slots_taken":7,"listing_max_providers":100,"offer_key":"0x0f","offer_expires_in_seconds":3600,"agreement_key":"0x9c","agreement_port":20007,"agreement_glm_per_request":"0.001","agreement_expires_in_seconds":259200,"tunnel_state":"current","tunnel_agreement":"0x9c","tunnel_port":20007,"count":48213,"count_written_seconds_ago":600,"count_opened_seconds_ago":1800,"count_opened_block":900,"count_record":"0xc1","awaiting_records":1,"awaiting_requests":100,"payouts_receipts":1,"payouts_total_glm":"0.25","payouts_last_tx":"0x925d","payouts_last_chain_id":560048,"next":null}'
 MARKETPLACE_STATUS=$pool status > "$tmp/out"

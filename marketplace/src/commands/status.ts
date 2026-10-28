@@ -37,9 +37,10 @@ export type Status = {
  * The operator's next step towards serving, or null once the tunnel is
  * set up for the agreement: the key needs gas before an offer, an
  * offer needs the load balancer's acceptance, an agreement needs its
- * tunnel.
+ * tunnel. Without a listing from the load balancer there is no offer
+ * to post and none to accept.
  */
-export type Next = "fund" | "post-offer" | "acceptance" | "start-tunnel" | null
+export type Next = "no-listing" | "fund" | "post-offer" | "acceptance" | "start-tunnel" | null
 
 /**
  * How the tunnel's settings relate to the agreement: none written yet,
@@ -138,6 +139,8 @@ export async function status(o: Status): Promise<Facts> {
   let next: Next
   if (agreement) {
     next = tunnel_state === "current" ? null : "start-tunnel"
+  } else if (!listing) {
+    next = "no-listing"
   } else if (offer) {
     next = "acceptance"
   } else {

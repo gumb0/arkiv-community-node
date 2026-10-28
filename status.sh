@@ -391,6 +391,7 @@ else
       create-key)   printf '  next:       create your provider key: ./marketplace.sh create-key\n';;
       fund)         printf '  next:       get test GLM for your provider key %s\n' "$(pf address)"
                     printf '              at https://hub.arkiv.network/faucet, then ./marketplace.sh post-offer\n';;
+      no-listing)   printf '  next:       the load balancer has no listing on this chain; nothing to do until it posts one\n';;
       post-offer)   printf '  next:       offer your node: ./marketplace.sh post-offer\n';;
       acceptance)   printf '  next:       waiting for the load balancer to accept your offer; then ./marketplace.sh start-tunnel\n';;
       start-tunnel) printf '  next:       connect the tunnel: ./marketplace.sh start-tunnel\n';;

@@ -94,6 +94,7 @@ describe("status", () => {
     equal(out.balance_glm, "0")
     equal(out.listing_max_providers, null)
     equal(out.listing_slots_taken, null)
+    equal(out.next, "no-listing")
     equal(out.offer_key, null)
     equal(out.agreement_key, null)
     equal(out.tunnel_state, "unconfigured")
@@ -111,6 +112,8 @@ describe("status", () => {
     equal((await facts({ ...rows, agreement: [], offer: [] }, SETTLE, undefined)).next, "post-offer")
     equal((await facts({ ...rows, agreement: [], offer: [], balance: 0n }, SETTLE, undefined)).next, "fund")
     equal((await facts({ ...rows, balance: 0n }, SETTLE, TUNNEL)).next, null, "an agreement needs no gas")
+    equal((await facts({ ...rows, agreement: [], listing: [] }, SETTLE, undefined)).next, "no-listing", "no offer is accepted without a listing")
+    equal((await facts({ ...rows, listing: [] }, SETTLE, TUNNEL)).next, null, "an agreement outlives the listing")
   })
 
   it("tells whose agreement the tunnel is set up for", async () => {

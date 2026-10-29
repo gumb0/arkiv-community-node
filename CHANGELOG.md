@@ -5,7 +5,13 @@ same for every release: `git pull` in this clone, then `./setup.sh`.
 An "Upgrade notes" line appears only when a release needs more than
 that.
 
-## Unreleased
+## v0.3.0
+
+One status command that says whether the node serves the pool and
+what to do next; the network chosen by name from the registry, now
+public; the first sync from the network's snapshot, zstd included; a
+preflight for the machine; the operator's script followed through
+October (the store path, optimistic sync off, the CA bundles).
 
 - The offer's `mem_gb` is the machine's memory as the kernel maps it,
   what `lsmem` sums, so a 16 GB machine posts 16 where it posted 15: the

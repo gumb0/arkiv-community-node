@@ -5,6 +5,13 @@ same for every release: `git pull` in this clone, then `./setup.sh`.
 An "Upgrade notes" line appears only when a release needs more than
 that.
 
+## v0.3.1
+
+- The marketplace addresses for rabdi (chain 7794095): the same load
+  balancer and settle keys as on tiramisu. A node on rabdi joins the
+  pool with this update and nothing else; a node on tiramisu is not
+  affected.
+
 ## v0.3.0
 
 One status command that says whether the node serves the pool and

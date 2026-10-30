@@ -262,7 +262,7 @@ grep -q '^ *Agreement: 0x9c, tunnel port 20007, 0.001 GLM per request, ends in a
 grep -q '^ *Tunnel: configured for this agreement' "$tmp/out"
 grep -q '^ *Counting: 48213 requests as of the last write, about 10 minutes ago (since block 900, record 0xc1)' "$tmp/out"
 grep -q '^ *Awaiting payout: 1 closed record, 100 requests' "$tmp/out"
-grep -q '^ *Payouts: 1 receipt, 0.25 GLM in total; last transfer 0x925d on chain 560048' "$tmp/out"
+grep -q '^ *Payouts: 1 receipt, 0.25 GLM in the last six months; last transfer 0x925d on chain 560048' "$tmp/out"
 MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status > "$tmp/out"
 grep -q 'overall: *SERVING' "$tmp/out"
 grep -q '^ *Agreement: 0x9c, .*kept alive by the load balancer while your node serves; ends in about 3 days if that stops' "$tmp/out"
@@ -276,6 +276,18 @@ MARKETPLACE_STATUS='{"address":"0x2121","balance_glm":"1","offer_key":"0x0f","ag
 grep -q '^ *Offer: 0x0f, expires in an unknown time' "$tmp/out"
 grep -q 'next: *waiting for the load balancer' "$tmp/out"
 MARKETPLACE_STATUS=${pool//\"offer_expires_in_seconds\":3600/\"offer_expires_in_seconds\":0} status | grep -q '^ *Offer: 0x0f, expires now'
+# A tunnel down because its agreement ended is no fault: the next step is
+# the answer. The same tunnel down for the current agreement is a fault.
+ended='{"address":"0x2121","balance_glm":"1","offer_key":null,"agreement_key":null,"tunnel_state":"ended","tunnel_agreement":"0x9c","tunnel_port":20007,"count":null,"awaiting_records":0,"payouts_receipts":0,"next":"post-offer"}'
+MARKETPLACE_STATUS=$ended PROFILES=tunnel TUNNEL_STATUS_PORT=18603 status > "$tmp/out"
+grep -q 'overall: *NOT SERVING YET' "$tmp/out"
+grep -q 'next: *offer your node' "$tmp/out"
+grep -q 'which has ended: post a new offer' "$tmp/out"
+current='{"address":"0x2121","balance_glm":"1","offer_key":"0x0f","agreement_key":"0x9c","tunnel_state":"current","count":null,"awaiting_records":0,"payouts_receipts":0,"next":null}'
+if MARKETPLACE_STATUS=$current PROFILES=tunnel TUNNEL_STATUS_PORT=18603 status > "$tmp/out"; then
+  echo "a tunnel down for the current agreement passed" >&2; exit 1
+fi
+grep -q 'overall: *NEEDS ATTENTION' "$tmp/out"
 # The records out of reach: the verdict says so instead of guessing, and
 # everything the command printed is under the pool line.
 status > "$tmp/out"

@@ -4,8 +4,9 @@
 
 import { deepStrictEqual as deepEqual, strictEqual as equal, match, ok, throws } from "node:assert/strict"
 import { describe, it } from "node:test"
-import { Entity, addr, i32, key, str, type Attributes } from "@arkiv-network/sdk"
-import { recoverMessageAddress, stringToBytes, type Hex } from "viem"
+import { addr, i32, key, str } from "@arkiv-network/sdk"
+import type { Attribute, Row } from "../src/chain.ts"
+import { recoverMessageAddress, stringToHex, type Hex } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { splitHostPort, startTunnel } from "../src/commands/start-tunnel.ts"
 import { KIND } from "../src/records.ts"
@@ -18,15 +19,20 @@ const ME = privateKeyToAccount(KEY).address
 const LISTING = `0x${"a1".repeat(32)}` as Hex
 const AGREEMENT = `0x${"9c".repeat(32)}` as Hex
 
-function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object): Entity {
-  return new Entity({
+function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object): Row {
+  return {
     key: k,
     creator: LB,
     createdAt: 100n,
+    updatedAt: 100n,
     expiresAt: 5000n,
-    attributes: { kind: str(kind), v: i32(1), ...attributes } as Attributes,
-    payload: stringToBytes(JSON.stringify(payload)),
-  })
+    attributes: {
+      kind: str(kind),
+      v: i32(1),
+      ...attributes,
+      payload: { type: "bytes", value: stringToHex(JSON.stringify(payload)) },
+    } as Record<string, Attribute>,
+  }
 }
 
 const listing = (tunnelServer: string) =>

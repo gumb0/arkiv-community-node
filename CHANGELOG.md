@@ -5,6 +5,34 @@ same for every release: `git pull` in this clone, then `./setup.sh`.
 An "Upgrade notes" line appears only when a release needs more than
 that.
 
+## v0.4.0
+
+The move to the rabdi testnet and its node line, arkiv-reth v1.0.0.
+The marketplace commands of this release work on rabdi and no longer
+on tiramisu, whose node has a different entity model, so tiramisu's
+addresses are gone from `marketplace/addresses.json`.
+
+- The marketplace commands are on `@arkiv-network/sdk` 1.0.0. A
+  record's JSON payload is a `bytes` attribute named `payload`, an
+  offer is written through a schema, and queries read pages of 100.
+- `status.sh` no longer says NEEDS ATTENTION for a tunnel left from an
+  ended agreement: it says NOT SERVING YET and names the next step. A
+  stopped tunnel is a fault only when it is set up for the current
+  agreement.
+- The payout line says "in the last six months": receipts now expire
+  with the chain's maximum lifetime, about 182 days.
+- A request the node refuses is reported in one line with the node's
+  words, and a hint to update, instead of the client library's whole
+  error text (#26).
+- The upstream drift check reads rabdi's `run-node.sh`.
+
+Upgrade notes: rabdi is a new chain, so a node syncs it from the start.
+Set `NETWORK=rabdi` in `.env`, then `git pull` and `./setup.sh
+--refresh`, and accept the wipe when it asks. Once synced, `./status.sh` names the next
+step: get test GLM for your provider key if it has none, post a new
+offer, then `./marketplace.sh start-tunnel`. Your provider key stays
+the same.
+
 ## v0.3.1
 
 - The marketplace addresses for rabdi (chain 7794095): the same load

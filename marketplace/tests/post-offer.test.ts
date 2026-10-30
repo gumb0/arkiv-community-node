@@ -3,8 +3,9 @@
 
 import { deepStrictEqual as deepEqual, strictEqual as equal, match, ok } from "node:assert/strict"
 import { describe, it } from "node:test"
-import { Entity, addr, i32, key, str, type Attributes } from "@arkiv-network/sdk"
-import { bytesToString, stringToBytes, type Hex } from "viem"
+import { addr, i32, key, str } from "@arkiv-network/sdk"
+import type { Attribute, Row } from "../src/chain.ts"
+import { hexToString, stringToHex, type Hex } from "viem"
 import type { NodeFacts } from "../src/node.ts"
 import { OFFER_DAYS, postOffer } from "../src/commands/post-offer.ts"
 import { KIND } from "../src/records.ts"
@@ -17,19 +18,24 @@ const OFFER = `0x${"0f".repeat(32)}` as Hex
 const AGREEMENT = `0x${"9c".repeat(32)}` as Hex
 
 const node: NodeFacts = {
-  specs: { chain_id: 7738577, head: 1000, el: "arkiv-reth/v0.2.0", cl: "lighthouse/v8.2.1", hw: { cpus: 8, mem_gb: 32 } },
+  specs: { chain_id: 7794095, head: 1000, el: "arkiv-reth/v0.2.0", cl: "lighthouse/v8.2.1", hw: { cpus: 8, mem_gb: 32 } },
   syncing: false,
 }
 
-function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n, creator: Hex = LB): Entity {
-  return new Entity({
+function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n, creator: Hex = LB): Row {
+  return {
     key: k,
     creator,
     createdAt,
+    updatedAt: createdAt,
     expiresAt,
-    attributes: { kind: str(kind), v: i32(1), ...attributes } as Attributes,
-    payload: stringToBytes(JSON.stringify(payload)),
-  })
+    attributes: {
+      kind: str(kind),
+      v: i32(1),
+      ...attributes,
+      payload: { type: "bytes", value: stringToHex(JSON.stringify(payload)) },
+    } as Record<string, Attribute>,
+  }
 }
 
 const listing = (k = LISTING, createdAt = 100n, expiresAt = 5000n) =>
@@ -64,8 +70,9 @@ describe("post-offer", () => {
     const { record: rec, days } = chain.created[0] ?? { record: undefined, days: 0 }
     ok(rec, "one offer written")
     equal(days, OFFER_DAYS)
-    deepEqual(rec.attributes, { kind: str(KIND.offer), v: i32(1), lb_listing: key(LISTING) })
-    deepEqual(JSON.parse(bytesToString(rec.payload)), { specs: node.specs })
+    const { payload, ...indexed } = rec.values
+    deepEqual(indexed, { kind: str(KIND.offer), v: i32(1), lb_listing: key(LISTING) })
+    deepEqual(JSON.parse(hexToString((payload as { value: Hex }).value)), { specs: node.specs })
     match(lines.join("\n"), /0\.001 GLM per request/)
     match(lines.join("\n"), /Slots: 3 of 100 taken/)
   })
@@ -75,7 +82,7 @@ describe("post-offer", () => {
     const other = `0x${"a2".repeat(32)}` as Hex
     const chain = fakeChain({ listing: [listing(other, 200n, 5000n), listing(LISTING, 100n, 9000n)] })
     await run(chain)
-    deepEqual((chain.created[0]?.record.attributes as { lb_listing: unknown }).lb_listing, key(LISTING))
+    deepEqual(chain.created[0]?.record.values.lb_listing, key(LISTING))
   })
 
   const refusals: [string, Parameters<typeof fakeChain>[0], NodeFacts, RegExp][] = [

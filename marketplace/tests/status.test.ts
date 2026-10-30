@@ -3,8 +3,9 @@
 
 import { deepStrictEqual as deepEqual, strictEqual as equal } from "node:assert/strict"
 import { describe, it } from "node:test"
-import { Entity, addr, i32, key, str, type Attributes } from "@arkiv-network/sdk"
-import { stringToBytes, type Hex } from "viem"
+import { addr, i32, key, str } from "@arkiv-network/sdk"
+import { stringToHex, type Hex } from "viem"
+import type { Attribute, Row } from "../src/chain.ts"
 import { status } from "../src/commands/status.ts"
 import { KIND } from "../src/records.ts"
 import { fakeChain, type Rows } from "./chain.ts"
@@ -19,16 +20,20 @@ const COUNTER_OPEN = `0x${"c1".repeat(32)}` as Hex
 const COUNTER_CLOSED = `0x${"c2".repeat(32)}` as Hex
 const COUNTER_PAID = `0x${"c3".repeat(32)}` as Hex
 
-function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n, creator: Hex = LB, updatedAt = createdAt): Entity {
-  return new Entity({
+function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n, creator: Hex = LB, updatedAt = createdAt): Row {
+  return {
     key: k,
     creator,
     createdAt,
     updatedAt,
     expiresAt,
-    attributes: { kind: str(kind), v: i32(1), ...attributes } as Attributes,
-    payload: stringToBytes(JSON.stringify(payload)),
-  })
+    attributes: {
+      kind: str(kind),
+      v: i32(1),
+      ...attributes,
+      payload: { type: "bytes", value: stringToHex(JSON.stringify(payload)) },
+    } as Record<string, Attribute>,
+  }
 }
 
 const rows: Rows = {

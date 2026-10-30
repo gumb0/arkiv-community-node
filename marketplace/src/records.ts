@@ -1,8 +1,9 @@
 // The marketplace records as the provider reads and writes them: the
 // one place a record's shape is spelled in this package.
 
-import { i32, key, str, jsonToPayload, type AttributeInputs, type Entity } from "@arkiv-network/sdk"
-import { bytesToString, type Hex } from "viem"
+import { bytes, type CreateEntityValues, defineSchema, i32, key, str } from "@arkiv-network/sdk"
+import { hexToString, stringToHex, type Hex } from "viem"
+import type { Row } from "./chain.ts"
 
 const SCHEMA_VERSION = 1
 
@@ -28,40 +29,22 @@ export const attrAddr = (name: string, address: Hex): string => `${name} = addr(
 
 // --- reading ---------------------------------------------------------------
 
-function attribute(entity: Entity, name: string, type: string): unknown {
-  const value = entity.attributes?.[name]
+function attribute(row: Row, name: string, type: string): unknown {
+  const value = row.attributes[name]
   if (value === undefined || value.type !== type) {
-    throw new Error(`record ${entity.key} has no ${type} attribute ${name}`)
+    throw new Error(`record ${row.key} has no ${type} attribute ${name}`)
   }
   return value.value
 }
 
-function payloadJson(entity: Entity): Record<string, unknown> {
-  if (entity.payload === undefined) {
-    throw new Error(`record ${entity.key} came without its payload`)
+// A record's JSON document rides in the bytes attribute named payload
+// (the load balancer's record spec), hex on the wire.
+function payloadJson(row: Row): Record<string, unknown> {
+  const payload = row.attributes.payload
+  if (payload === undefined || payload.type !== "bytes") {
+    throw new Error(`record ${row.key} came without its payload`)
   }
-  return JSON.parse(bytesToString(entity.payload)) as Record<string, unknown>
-}
-
-function expiresAt(entity: Entity): bigint {
-  if (entity.expiresAt === undefined) {
-    throw new Error(`record ${entity.key} came without its expiry`)
-  }
-  return entity.expiresAt
-}
-
-function createdAt(entity: Entity): bigint {
-  if (entity.createdAt === undefined) {
-    throw new Error(`record ${entity.key} came without its creation block`)
-  }
-  return entity.createdAt
-}
-
-function updatedAt(entity: Entity): bigint {
-  if (entity.updatedAt === undefined) {
-    throw new Error(`record ${entity.key} came without the block of its last write`)
-  }
-  return entity.updatedAt
+  return JSON.parse(hexToString(payload.value as Hex)) as Record<string, unknown>
 }
 
 /**
@@ -85,12 +68,12 @@ export type Listing = {
   maxProviders: number
 }
 
-export function decodeListing(entity: Entity): Listing {
-  const payload = payloadJson(entity)
+export function decodeListing(row: Row): Listing {
+  const payload = payloadJson(row)
   return {
-    key: entity.key as Hex,
-    createdAt: createdAt(entity),
-    expiresAt: expiresAt(entity),
+    key: row.key,
+    createdAt: row.createdAt,
+    expiresAt: row.expiresAt,
     weiPerCall: BigInt(payload.wei_per_call as string),
     tunnelServer: payload.tunnel_server as string,
     maxProviders: payload.max_providers as number,
@@ -107,12 +90,12 @@ export type Specs = {
 
 export type Offer = { key: Hex; expiresAt: bigint; lbListing: Hex; specs: Specs }
 
-export function decodeOffer(entity: Entity): Offer {
-  const payload = payloadJson(entity)
+export function decodeOffer(row: Row): Offer {
+  const payload = payloadJson(row)
   return {
-    key: entity.key as Hex,
-    expiresAt: expiresAt(entity),
-    lbListing: attribute(entity, "lb_listing", "key") as Hex,
+    key: row.key,
+    expiresAt: row.expiresAt,
+    lbListing: attribute(row, "lb_listing", "key") as Hex,
     specs: payload.specs as Specs,
   }
 }
@@ -127,14 +110,14 @@ export type Agreement = {
   remotePort: number
 }
 
-export function decodeAgreement(entity: Entity): Agreement {
-  const payload = payloadJson(entity)
+export function decodeAgreement(row: Row): Agreement {
+  const payload = payloadJson(row)
   return {
-    key: entity.key as Hex,
-    createdAt: createdAt(entity),
-    expiresAt: expiresAt(entity),
-    provider: attribute(entity, "provider", "addr") as Hex,
-    offer: attribute(entity, "offer", "key") as Hex,
+    key: row.key,
+    createdAt: row.createdAt,
+    expiresAt: row.expiresAt,
+    provider: attribute(row, "provider", "addr") as Hex,
+    offer: attribute(row, "offer", "key") as Hex,
     weiPerCall: BigInt(payload.wei_per_call as string),
     remotePort: payload.remote_port as number,
   }
@@ -142,14 +125,30 @@ export function decodeAgreement(entity: Entity): Agreement {
 
 // --- writing ---------------------------------------------------------------
 
-export type OfferRecord = { attributes: AttributeInputs; payload: Uint8Array; contentType: "application/json" }
+/**
+ * The offer's attributes as the SDK writes them: the kind, the version
+ * and the listing it answers indexed, the payload a blob. Unnamed, so
+ * the entity carries these attributes and no schema tag.
+ */
+export const OFFER = defineSchema({
+  kind: str().indexed(),
+  v: i32().indexed(),
+  lb_listing: key().indexed(),
+  payload: bytes(),
+})
+
+export type OfferRecord = { schema: typeof OFFER; values: CreateEntityValues<typeof OFFER> }
 
 /** An offer against `lbListing`, with the node's specs in the payload. */
 export function offerRecord(lbListing: Hex, specs: Specs): OfferRecord {
   return {
-    attributes: { kind: str(KIND.offer), v: i32(SCHEMA_VERSION), lb_listing: key(lbListing) },
-    payload: jsonToPayload({ specs }),
-    contentType: "application/json",
+    schema: OFFER,
+    values: {
+      kind: str(KIND.offer),
+      v: i32(SCHEMA_VERSION),
+      lb_listing: key(lbListing),
+      payload: bytes(stringToHex(JSON.stringify({ specs }))),
+    },
   }
 }
 
@@ -170,19 +169,19 @@ export type Counter = {
   closedBlock?: number
 }
 
-export function decodeCounter(entity: Entity): Counter {
-  const payload = payloadJson(entity)
-  const state = attribute(entity, "state", "str")
+export function decodeCounter(row: Row): Counter {
+  const payload = payloadJson(row)
+  const state = attribute(row, "state", "str")
   if (state !== "open" && state !== "closed") {
-    throw new Error(`record ${entity.key} has state ${String(state)}, expected open or closed`)
+    throw new Error(`record ${row.key} has state ${String(state)}, expected open or closed`)
   }
   return {
-    key: entity.key as Hex,
-    createdAt: createdAt(entity),
-    updatedAt: updatedAt(entity),
-    expiresAt: expiresAt(entity),
-    agreement: attribute(entity, "agreement", "key") as Hex,
-    provider: attribute(entity, "provider", "addr") as Hex,
+    key: row.key,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    expiresAt: row.expiresAt,
+    agreement: attribute(row, "agreement", "key") as Hex,
+    provider: attribute(row, "provider", "addr") as Hex,
     state,
     count: payload.count as number,
     weiPerCall: BigInt(payload.wei_per_call as string),
@@ -202,14 +201,14 @@ export type Receipt = {
   payout: { chainId: number; tx: string }
 }
 
-export function decodeReceipt(entity: Entity): Receipt {
-  const payload = payloadJson(entity)
+export function decodeReceipt(row: Row): Receipt {
+  const payload = payloadJson(row)
   const payout = payload.payout as { chain_id: number; tx: string }
   return {
-    key: entity.key as Hex,
-    createdAt: createdAt(entity),
-    counter: attribute(entity, "counter", "key") as Hex,
-    provider: attribute(entity, "provider", "addr") as Hex,
+    key: row.key,
+    createdAt: row.createdAt,
+    counter: attribute(row, "counter", "key") as Hex,
+    provider: attribute(row, "provider", "addr") as Hex,
     agreement: payload.agreement as Hex,
     count: payload.count as number,
     amountWei: BigInt(payload.amount_wei as string),

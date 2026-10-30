@@ -346,7 +346,7 @@ if [ -n "$pool_json" ]; then
   if [ "$n" = 0 ]; then
     pool_lines+=("Payouts: none yet")
   else
-    pool_lines+=("Payouts: $n receipt$(plural "$n"), $(pf payouts_total_glm) GLM in total; last transfer $(pf payouts_last_tx) on chain $(pf payouts_last_chain_id)")
+    pool_lines+=("Payouts: $n receipt$(plural "$n"), $(pf payouts_total_glm) GLM in the last six months; last transfer $(pf payouts_last_tx) on chain $(pf payouts_last_chain_id)")
   fi
 fi
 
@@ -361,8 +361,14 @@ ok=true
 [ "$cl_peers" = 0 ] && ok=false             # no peers: new blocks cannot arrive
                                             # ("unknown" is not a fault — only a
                                             # confirmed zero is)
+# A tunnel that is down is a fault only when it is set up for the current
+# agreement. If the records name a step still to take, such as a new offer
+# after the agreement ended, the tunnel has nothing to connect to yet, and
+# that step is the answer.
 if [ "$tunnel_state" != off ] && [ "$tunnel_state" != running ]; then
-  ok=false
+  case "$pool_next" in
+    null|unknown) ok=false;;
+  esac
 fi
 # Ready to serve current data: no fault, and the beacon node's own view,
 # the same three flags as the consensus badge, says it is current.
@@ -372,7 +378,7 @@ if [ "$ok" = true ] && [ "$b_syncing" = false ] && [ "$b_optimistic" = false ] &
 fi
 # Serving: ready, the records say the tunnel is set up for the
 # agreement, and the tunnel is connected. Otherwise the next step; a
-# tunnel that is set up but down is a fault, caught above.
+# tunnel set up for the agreement but down is a fault, caught above.
 serving=false next=null
 if [ "$ready" = true ]; then
   case "$pool_next" in

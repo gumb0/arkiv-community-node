@@ -2,21 +2,35 @@
 // reads by query, and writes signed with the provider key. Behind a
 // small surface so the commands are tested over a fake.
 
-import {
-  createPublicClient,
-  createWalletClient,
-  ExpirationTime,
-  type Entity,
-} from "@arkiv-network/sdk"
+import { createPublicClient, createWalletClient, ExpirationTime } from "@arkiv-network/sdk"
 import { defineChain, http, type Chain, type Hex } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import type { OfferRecord } from "./records.ts"
+
+/** One attribute of a row: the node's type tag and the decoded value. */
+export type Attribute = { type: string; value: unknown }
+
+/**
+ * A row as the commands read it: the entity's key, creator and
+ * blocks, and its attributes by name, the payload among them. The one
+ * shape the rest of the package sees, whatever the SDK's rows look
+ * like.
+ */
+export type Row = {
+  key: Hex
+  creator: Hex
+  createdAt: bigint
+  /** The block of the last write; the creation block until the first one. */
+  updatedAt: bigint
+  expiresAt: bigint
+  attributes: Record<string, Attribute>
+}
 
 export type Reader = {
   chainId: number
   head(): Promise<bigint>
   balance(address: Hex): Promise<bigint>
-  query(text: string): Promise<Entity[]>
+  query(text: string): Promise<Row[]>
   count(text: string): Promise<number>
 }
 
@@ -26,7 +40,8 @@ export type Writer = {
   createOffer(record: OfferRecord, days: number): Promise<Created>
 }
 
-const PAGE = 200
+/** The node's page maximum. */
+const PAGE = 100
 
 export async function connectReader(rpcUrl: string): Promise<Reader> {
   const client = createPublicClient({ transport: http(rpcUrl) })
@@ -39,19 +54,17 @@ export async function connectReader(rpcUrl: string): Promise<Reader> {
       const page = await client.query(text, {
         limit: PAGE,
         select: {
-          key: true,
-          creator: true,
-          createdAt: true,
-          updatedAt: true,
-          expiresAt: true,
-          payload: true,
-          attributes: true,
+          $key: true,
+          $creator: true,
+          $createdAt: true,
+          $updatedAt: true,
+          $expiresAt: true,
+          $attributes: true,
         },
       })
-      return page.entities
+      return page.entities.map(fromFlat)
     },
-    // The SDK's getEntityCount at this version takes no query and
-    // counts every entity on the chain; the node's method takes one.
+    // The node's own method, kept from before the SDK's query could count.
     count: async (text) => {
       const count = await client.request({
         method: "arkiv_getEntityCount",
@@ -85,6 +98,36 @@ export function explainRefusal(error: unknown): string | undefined {
   return undefined
 }
 
+/** A flat row as the SDK answers one, with every selected part. */
+type Flat = {
+  $key?: Hex | undefined
+  $creator?: Hex | undefined
+  $createdAt?: bigint | undefined
+  $updatedAt?: bigint | undefined
+  $expiresAt?: bigint | undefined
+  $attributes?: Record<string, Attribute> | undefined
+}
+
+/**
+ * The SDK's flat row as the package's own. The types say every part
+ * is there; this says so of the node's answer, naming the part a row
+ * lacks rather than failing later on an undefined block.
+ */
+export function fromFlat(flat: Flat): Row {
+  const present = <T>(value: T | undefined, what: string): T => {
+    if (value === undefined) throw new Error(`record ${flat.$key} came without its ${what}`)
+    return value
+  }
+  return {
+    key: present(flat.$key, "key"),
+    creator: present(flat.$creator, "creator"),
+    createdAt: present(flat.$createdAt, "creation block"),
+    updatedAt: present(flat.$updatedAt, "block of its last write"),
+    expiresAt: present(flat.$expiresAt, "expiry"),
+    attributes: present(flat.$attributes, "attributes"),
+  }
+}
+
 export function connectWriter(rpcUrl: string, chainId: number, privateKey: Hex): Writer {
   const chain: Chain = defineChain({
     id: chainId,
@@ -100,9 +143,8 @@ export function connectWriter(rpcUrl: string, chainId: number, privateKey: Hex):
   })
   return {
     createOffer: async (record, days) => {
-      const created = await wallet.createEntity({
-        ...record,
-        expires: ExpirationTime.fromDays(days),
+      const created = await wallet.createEntity(record.schema, record.values, {
+        expiration: ExpirationTime.fromDays(days),
       })
       return { entityKey: created.entityKey, expiresAt: created.expiresAt }
     },

@@ -1,9 +1,8 @@
 // A chain the commands run over in tests: rows per record kind,
 // answered by the kind a query names, and the offers a writer wrote.
 
-import type { Entity } from "@arkiv-network/sdk"
 import type { Hex } from "viem"
-import type { Reader, Writer } from "../src/chain.ts"
+import type { Reader, Row, Writer } from "../src/chain.ts"
 import type { OfferRecord } from "../src/records.ts"
 import { KIND } from "../src/records.ts"
 
@@ -16,12 +15,12 @@ type Kind = keyof typeof KIND
  * names, the key's balance, and `taken`, the count of live
  * agreements, which the commands show as "N of M slots".
  */
-export type Rows = Partial<Record<Kind, Entity[]>> & { balance?: bigint; taken?: number }
+export type Rows = Partial<Record<Kind, Row[]>> & { balance?: bigint; taken?: number }
 
 export function fakeChain(rows: Rows, head = 1000n) {
   const created: { record: OfferRecord; days: number }[] = []
   const reader: Reader = {
-    chainId: 7738577,
+    chainId: 7794095,
     head: async () => head,
     balance: async () => rows.balance ?? 10n ** 18n,
     query: async (text) => {
@@ -29,7 +28,7 @@ export function fakeChain(rows: Rows, head = 1000n) {
       for (const [name, kind] of Object.entries(KIND)) {
         if (!text.includes(`str('${kind}')`)) continue
         const page = rows[name as Kind] ?? []
-        return creator ? page.filter((row) => row.creator?.toLowerCase() === creator) : page
+        return creator ? page.filter((row) => row.creator.toLowerCase() === creator) : page
       }
       throw new Error(`unexpected query ${text}`)
     },

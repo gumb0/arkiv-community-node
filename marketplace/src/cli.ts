@@ -5,7 +5,7 @@ import { existsSync } from "node:fs"
 import { writeFile } from "node:fs/promises"
 import type { Hex } from "viem"
 import { lbAddress, settleAddress, settlePreviousAddresses } from "./addresses.ts"
-import { connectReader, connectWriter } from "./chain.ts"
+import { connectReader, connectWriter, explainRefusal } from "./chain.ts"
 import { createKeyCommand } from "./commands/create-key.ts"
 import { postOffer } from "./commands/post-offer.ts"
 import { startTunnel } from "./commands/start-tunnel.ts"
@@ -130,6 +130,6 @@ async function main(args: string[]): Promise<void> {
 }
 
 main(process.argv.slice(2)).catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error))
+  console.error(explainRefusal(error) ?? (error instanceof Error ? error.message : String(error)))
   process.exit(1)
 })

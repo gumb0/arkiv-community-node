@@ -12,11 +12,30 @@ import { defineChain, http, type Chain, type Hex } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import type { OfferRecord } from "./records.ts"
 
+/** One attribute of a row: the node's type tag and the decoded value. */
+export type Attribute = { type: string; value: unknown }
+
+/**
+ * A row as the commands read it: the entity's key, creator and
+ * blocks, its payload, and its attributes by name. The one shape the
+ * rest of the package sees, whatever the SDK's rows look like.
+ */
+export type Row = {
+  key: Hex
+  creator: Hex
+  createdAt: bigint
+  /** The block of the last write; the creation block until the first one. */
+  updatedAt: bigint
+  expiresAt: bigint
+  payload: Uint8Array
+  attributes: Record<string, Attribute>
+}
+
 export type Reader = {
   chainId: number
   head(): Promise<bigint>
   balance(address: Hex): Promise<bigint>
-  query(text: string): Promise<Entity[]>
+  query(text: string): Promise<Row[]>
   count(text: string): Promise<number>
 }
 
@@ -48,7 +67,7 @@ export async function connectReader(rpcUrl: string): Promise<Reader> {
           attributes: true,
         },
       })
-      return page.entities
+      return page.entities.map(fromEntity)
     },
     // The SDK's getEntityCount at this version takes no query and
     // counts every entity on the chain; the node's method takes one.
@@ -83,6 +102,23 @@ export function explainRefusal(error: unknown): string | undefined {
     }
   }
   return undefined
+}
+
+/** The SDK's entity as a row, with every selected part present. */
+export function fromEntity(entity: Entity): Row {
+  const present = <T>(value: T | undefined, what: string): T => {
+    if (value === undefined) throw new Error(`record ${entity.key} came without its ${what}`)
+    return value
+  }
+  return {
+    key: entity.key as Hex,
+    creator: entity.creator as Hex,
+    createdAt: present(entity.createdAt, "creation block"),
+    updatedAt: present(entity.updatedAt, "block of its last write"),
+    expiresAt: present(entity.expiresAt, "expiry"),
+    payload: present(entity.payload, "payload"),
+    attributes: (entity.attributes ?? {}) as Record<string, Attribute>,
+  }
 }
 
 export function connectWriter(rpcUrl: string, chainId: number, privateKey: Hex): Writer {

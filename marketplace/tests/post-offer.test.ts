@@ -3,7 +3,8 @@
 
 import { deepStrictEqual as deepEqual, strictEqual as equal, match, ok } from "node:assert/strict"
 import { describe, it } from "node:test"
-import { Entity, addr, i32, key, str, type Attributes } from "@arkiv-network/sdk"
+import { addr, i32, key, str } from "@arkiv-network/sdk"
+import type { Attribute, Row } from "../src/chain.ts"
 import { bytesToString, stringToBytes, type Hex } from "viem"
 import type { NodeFacts } from "../src/node.ts"
 import { OFFER_DAYS, postOffer } from "../src/commands/post-offer.ts"
@@ -21,15 +22,16 @@ const node: NodeFacts = {
   syncing: false,
 }
 
-function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n, creator: Hex = LB): Entity {
-  return new Entity({
+function record(k: Hex, kind: string, attributes: Record<string, unknown>, payload: object, expiresAt = 5000n, createdAt = 100n, creator: Hex = LB): Row {
+  return {
     key: k,
     creator,
     createdAt,
+    updatedAt: createdAt,
     expiresAt,
-    attributes: { kind: str(kind), v: i32(1), ...attributes } as Attributes,
+    attributes: { kind: str(kind), v: i32(1), ...attributes } as Record<string, Attribute>,
     payload: stringToBytes(JSON.stringify(payload)),
-  })
+  }
 }
 
 const listing = (k = LISTING, createdAt = 100n, expiresAt = 5000n) =>

@@ -3,8 +3,9 @@
 
 import { deepStrictEqual as deepEqual, strictEqual as equal, throws } from "node:assert/strict"
 import { describe, it } from "node:test"
-import { Entity, addr, i32, key, str, type Attributes } from "@arkiv-network/sdk"
+import { addr, i32, key, str } from "@arkiv-network/sdk"
 import { bytesToString, stringToBytes, type Hex } from "viem"
+import type { Attribute, Row } from "../src/chain.ts"
 import {
   KIND,
   alive,
@@ -32,18 +33,18 @@ const specs = {
   hw: { cpus: 8, mem_gb: 32 },
 }
 
-/** A queried entity, the way the SDK hands one back. */
-function entity(fields: { key: Hex; expiresAt: bigint; attributes: Record<string, unknown>; payload: object }): Entity {
-  return new Entity({
+/** A queried entity, the way the reader hands one back. */
+function entity(fields: { key: Hex; expiresAt: bigint; attributes: Record<string, unknown>; payload: object }): Row {
+  return {
     key: fields.key,
     creator: LB,
     createdAt: 100n,
     // As the node returns it for a record never written since its creation.
     updatedAt: 100n,
     expiresAt: fields.expiresAt,
-    attributes: fields.attributes as Attributes,
+    attributes: fields.attributes as Record<string, Attribute>,
     payload: stringToBytes(JSON.stringify(fields.payload)),
-  })
+  }
 }
 
 describe("the offer", () => {
@@ -168,13 +169,10 @@ describe("the load balancer's records", () => {
     deepEqual(receipt.payout, { chainId: 560048, tx: "0x925d33c7" })
   })
 
-  it("a record without the attribute or the payload is an error, not a guess", () => {
-    throws(() => decodeAgreement(new Entity({ key: LISTING, createdAt: 1n, expiresAt: 1n, attributes: {}, payload: stringToBytes("{}") })), /provider/)
-    throws(() => decodeListing(new Entity({ key: LISTING, createdAt: 1n, expiresAt: 1n, attributes: {} })), /payload/)
-    const counter = { key: `0x${"c1".repeat(32)}` as Hex, expiresAt: 1n, attributes: { kind: str(KIND.counter), v: i32(1), agreement: key(LISTING), provider: addr(ME), state: str("open") }, payload: { count: 1, wei_per_call: "1", opened_block: 1 } }
-    const unwritten = entity(counter)
-    unwritten.updatedAt = undefined
-    throws(() => decodeCounter(unwritten), /the block of its last write/)
+  it("a record without the attribute is an error, not a guess", () => {
+    // A row's fields are the reader's to guarantee (chain.test.ts); the
+    // attributes a record needs are checked here.
+    throws(() => decodeAgreement(entity({ key: LISTING, expiresAt: 1n, attributes: {}, payload: {} })), /provider/)
   })
 
   it("the oldest is by creation block, not by expiry", () => {

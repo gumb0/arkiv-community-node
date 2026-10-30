@@ -65,17 +65,17 @@ export async function connectReader(rpcUrl: string): Promise<Reader> {
 /**
  * A JSON-RPC error from the node, in one line: what the node said,
  * instead of viem's whole text with the request body and its version.
- * `undefined` for any other failure. The node refusing what these
- * commands send is what a node newer than them looks like, so the
- * line names the update.
+ * `undefined` for any other failure. The node refusing what
+ * marketplace.sh sends is what a node newer than this checkout looks
+ * like, so the line names the update.
  */
 export function explainRefusal(error: unknown): string | undefined {
   for (let link: unknown = error; link instanceof Error; link = link.cause) {
     if (!/Rpc(Request)?Error$/.test(link.name)) continue
     const details = (link as { details?: string }).details || link.message.split("\n")[0]
     return (
-      `your node refused a request from these commands: ${details}\n` +
-      "  If the node was updated recently, update these commands too: git pull && ./setup.sh --refresh"
+      `your node refused a request from marketplace.sh: ${details}\n` +
+      "  If the node was updated recently, update this checkout too: git pull && ./setup.sh --refresh"
     )
   }
   return undefined

@@ -16,7 +16,7 @@ function rpcError(name: string, details: string, cause?: Error): Error {
 describe("a refusal from the node", () => {
   it("is one line with the node's words, not viem's whole text", () => {
     const line = explainRefusal(rpcError("InvalidParamsRpcError", "unknown field `contentType`"))
-    equal(line?.split("\n")[0], "your node refused a request from these commands: unknown field `contentType`")
+    equal(line?.split("\n")[0], "your node refused a request from marketplace.sh: unknown field `contentType`")
     match(line ?? "", /git pull && \.\/setup\.sh --refresh/)
     equal(line?.includes("Request body"), false)
     equal(line?.includes("viem@"), false)
@@ -24,7 +24,7 @@ describe("a refusal from the node", () => {
 
   it("is found down the cause chain", () => {
     const wrapped = new Error("query failed", { cause: rpcError("RpcRequestError", "method not found") })
-    match(explainRefusal(wrapped) ?? "", /^your node refused a request from these commands: method not found/)
+    match(explainRefusal(wrapped) ?? "", /^your node refused a request from marketplace.sh: method not found/)
   })
 
   it("leaves every other failure to its own words", () => {

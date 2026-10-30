@@ -4,7 +4,7 @@
 import { deepStrictEqual as deepEqual, strictEqual as equal, throws } from "node:assert/strict"
 import { describe, it } from "node:test"
 import { addr, i32, key, str } from "@arkiv-network/sdk"
-import { bytesToString, stringToBytes, type Hex } from "viem"
+import { hexToString, stringToHex, type Hex } from "viem"
 import type { Attribute, Row } from "../src/chain.ts"
 import {
   KIND,
@@ -42,21 +42,24 @@ function entity(fields: { key: Hex; expiresAt: bigint; attributes: Record<string
     // As the node returns it for a record never written since its creation.
     updatedAt: 100n,
     expiresAt: fields.expiresAt,
-    attributes: fields.attributes as Record<string, Attribute>,
-    payload: stringToBytes(JSON.stringify(fields.payload)),
+    attributes: {
+      ...fields.attributes,
+      payload: { type: "bytes", value: stringToHex(JSON.stringify(fields.payload)) },
+    } as Record<string, Attribute>,
   }
 }
 
 describe("the offer", () => {
-  it("is written with the attributes and payload ENTITIES.md names", () => {
+  it("is written with the attributes the record spec names, the payload a bytes one", () => {
     const record = offerRecord(LISTING, specs)
-    deepEqual(record.attributes, {
-      kind: str("rpc.offer"),
-      v: i32(1),
-      lb_listing: key(LISTING),
-    })
-    equal(record.contentType, "application/json")
-    deepEqual(JSON.parse(bytesToString(record.payload)), { specs })
+    const { payload, ...indexed } = record.values
+    deepEqual(indexed, { kind: str("rpc.offer"), v: i32(1), lb_listing: key(LISTING) })
+    const written = payload as { type: string; value: Hex }
+    equal(written.type, "bytes")
+    deepEqual(JSON.parse(hexToString(written.value)), { specs })
+    deepEqual(Object.keys(record.schema.columns), ["kind", "v", "lb_listing", "payload"])
+    equal(record.schema.columns.payload.isIndexed, false, "bytes are never indexed")
+    equal(record.schema.name, undefined, "no schema tag")
   })
 
   it("reads back", () => {

@@ -6,7 +6,7 @@ import { deepStrictEqual as deepEqual, strictEqual as equal, match, ok, throws }
 import { describe, it } from "node:test"
 import { addr, i32, key, str } from "@arkiv-network/sdk"
 import type { Attribute, Row } from "../src/chain.ts"
-import { recoverMessageAddress, stringToBytes, type Hex } from "viem"
+import { recoverMessageAddress, stringToHex, type Hex } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { splitHostPort, startTunnel } from "../src/commands/start-tunnel.ts"
 import { KIND } from "../src/records.ts"
@@ -26,8 +26,12 @@ function record(k: Hex, kind: string, attributes: Record<string, unknown>, paylo
     createdAt: 100n,
     updatedAt: 100n,
     expiresAt: 5000n,
-    attributes: { kind: str(kind), v: i32(1), ...attributes } as Record<string, Attribute>,
-    payload: stringToBytes(JSON.stringify(payload)),
+    attributes: {
+      kind: str(kind),
+      v: i32(1),
+      ...attributes,
+      payload: { type: "bytes", value: stringToHex(JSON.stringify(payload)) },
+    } as Record<string, Attribute>,
   }
 }
 

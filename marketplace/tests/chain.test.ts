@@ -1,12 +1,8 @@
-// What a failure from the node reads as, and the reader's row: every part
-// the commands read is present, or the row is refused with the part named.
-// Run: npm test
+// What a failure from the node reads as. Run: npm test
 
-import { match, strictEqual as equal, throws } from "node:assert/strict"
+import { match, strictEqual as equal } from "node:assert/strict"
 import { describe, it } from "node:test"
-import { Entity, i32, str, type Attributes } from "@arkiv-network/sdk"
-import { stringToBytes, type Hex } from "viem"
-import { explainRefusal, fromEntity } from "../src/chain.ts"
+import { explainRefusal } from "../src/chain.ts"
 
 /** An error the way viem throws one: a class name, a short message, the node's words in `details`. */
 function rpcError(name: string, details: string, cause?: Error): Error {
@@ -52,36 +48,5 @@ describe("a refusal from the node", () => {
     transport.name = "HttpRequestError"
     equal(explainRefusal(transport), undefined)
     equal(explainRefusal(new Error("record 0x01 came without its payload")), undefined)
-  })
-})
-
-const KEY = `0x${"a1".repeat(32)}` as Hex
-const LB = "0xCA4B166EE155Cb2816Dc25f94Dc1fD102a26c997" as Hex
-
-const full = () => ({
-  key: KEY,
-  creator: LB,
-  createdAt: 100n,
-  updatedAt: 120n,
-  expiresAt: 5000n,
-  attributes: { kind: str("rpc.offer"), v: i32(1) } as Attributes,
-  payload: stringToBytes("{}"),
-})
-
-describe("a row from the SDK's entity", () => {
-  it("carries every part the commands read", () => {
-    const row = fromEntity(new Entity(full()))
-    equal(row.key, KEY)
-    equal(row.creator, LB)
-    equal(row.createdAt, 100n)
-    equal(row.updatedAt, 120n)
-    equal(row.expiresAt, 5000n)
-    equal(row.attributes.kind?.value, "rpc.offer")
-    equal(Buffer.from(row.payload).toString("utf8"), "{}")
-  })
-
-  it("is refused without a part, naming it", () => {
-    throws(() => fromEntity(new Entity({ ...full(), payload: undefined })), /payload/)
-    throws(() => fromEntity(new Entity({ ...full(), updatedAt: undefined })), /last write/)
   })
 })

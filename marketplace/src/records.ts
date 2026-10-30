@@ -1,8 +1,8 @@
 // The marketplace records as the provider reads and writes them: the
 // one place a record's shape is spelled in this package.
 
-import { i32, key, str, jsonToPayload, type AttributeInputs } from "@arkiv-network/sdk"
-import { bytesToString, type Hex } from "viem"
+import { bytes, type CreateEntityValues, defineSchema, i32, key, str } from "@arkiv-network/sdk"
+import { hexToString, stringToHex, type Hex } from "viem"
 import type { Row } from "./chain.ts"
 
 const SCHEMA_VERSION = 1
@@ -37,8 +37,14 @@ function attribute(row: Row, name: string, type: string): unknown {
   return value.value
 }
 
+// A record's JSON document rides in the bytes attribute named payload
+// (the load balancer's record spec), hex on the wire.
 function payloadJson(row: Row): Record<string, unknown> {
-  return JSON.parse(bytesToString(row.payload)) as Record<string, unknown>
+  const payload = row.attributes.payload
+  if (payload === undefined || payload.type !== "bytes") {
+    throw new Error(`record ${row.key} came without its payload`)
+  }
+  return JSON.parse(hexToString(payload.value as Hex)) as Record<string, unknown>
 }
 
 /**
@@ -119,14 +125,30 @@ export function decodeAgreement(row: Row): Agreement {
 
 // --- writing ---------------------------------------------------------------
 
-export type OfferRecord = { attributes: AttributeInputs; payload: Uint8Array; contentType: "application/json" }
+/**
+ * The offer's attributes as the SDK writes them: the kind, the version
+ * and the listing it answers indexed, the payload a blob. Unnamed, so
+ * the entity carries these attributes and no schema tag.
+ */
+export const OFFER = defineSchema({
+  kind: str().indexed(),
+  v: i32().indexed(),
+  lb_listing: key().indexed(),
+  payload: bytes(),
+})
+
+export type OfferRecord = { schema: typeof OFFER; values: CreateEntityValues<typeof OFFER> }
 
 /** An offer against `lbListing`, with the node's specs in the payload. */
 export function offerRecord(lbListing: Hex, specs: Specs): OfferRecord {
   return {
-    attributes: { kind: str(KIND.offer), v: i32(SCHEMA_VERSION), lb_listing: key(lbListing) },
-    payload: jsonToPayload({ specs }),
-    contentType: "application/json",
+    schema: OFFER,
+    values: {
+      kind: str(KIND.offer),
+      v: i32(SCHEMA_VERSION),
+      lb_listing: key(lbListing),
+      payload: bytes(stringToHex(JSON.stringify({ specs }))),
+    },
   }
 }
 

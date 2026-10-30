@@ -4,7 +4,7 @@
 import { deepStrictEqual as deepEqual, strictEqual as equal } from "node:assert/strict"
 import { describe, it } from "node:test"
 import { addr, i32, key, str } from "@arkiv-network/sdk"
-import { stringToBytes, type Hex } from "viem"
+import { stringToHex, type Hex } from "viem"
 import type { Attribute, Row } from "../src/chain.ts"
 import { status } from "../src/commands/status.ts"
 import { KIND } from "../src/records.ts"
@@ -27,8 +27,12 @@ function record(k: Hex, kind: string, attributes: Record<string, unknown>, paylo
     createdAt,
     updatedAt,
     expiresAt,
-    attributes: { kind: str(kind), v: i32(1), ...attributes } as Record<string, Attribute>,
-    payload: stringToBytes(JSON.stringify(payload)),
+    attributes: {
+      kind: str(kind),
+      v: i32(1),
+      ...attributes,
+      payload: { type: "bytes", value: stringToHex(JSON.stringify(payload)) },
+    } as Record<string, Attribute>,
   }
 }
 

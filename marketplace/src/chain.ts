@@ -64,8 +64,7 @@ export async function connectReader(rpcUrl: string): Promise<Reader> {
       })
       return page.entities.map(fromFlat)
     },
-    // The SDK has no count call that takes a query at this version;
-    // the node's method does.
+    // The node's own method, kept from before the SDK's query could count.
     count: async (text) => {
       const count = await client.request({
         method: "arkiv_getEntityCount",

@@ -26,7 +26,7 @@ const LB = "0xCA4B166EE155Cb2816Dc25f94Dc1fD102a26c997" as Hex
 const ME = "0x2121212121212121212121212121212121212121" as Hex
 
 const specs = {
-  chain_id: 7738577,
+  chain_id: 7794095,
   head: 123456,
   el: "arkiv-reth/v0.2.0",
   cl: "lighthouse/v8.2.1",

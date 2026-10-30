@@ -20,7 +20,7 @@ export type Rows = Partial<Record<Kind, Row[]>> & { balance?: bigint; taken?: nu
 export function fakeChain(rows: Rows, head = 1000n) {
   const created: { record: OfferRecord; days: number }[] = []
   const reader: Reader = {
-    chainId: 7738577,
+    chainId: 7794095,
     head: async () => head,
     balance: async () => rows.balance ?? 10n ** 18n,
     query: async (text) => {

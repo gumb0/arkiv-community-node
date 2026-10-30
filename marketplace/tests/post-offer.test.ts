@@ -18,7 +18,7 @@ const OFFER = `0x${"0f".repeat(32)}` as Hex
 const AGREEMENT = `0x${"9c".repeat(32)}` as Hex
 
 const node: NodeFacts = {
-  specs: { chain_id: 7738577, head: 1000, el: "arkiv-reth/v0.2.0", cl: "lighthouse/v8.2.1", hw: { cpus: 8, mem_gb: 32 } },
+  specs: { chain_id: 7794095, head: 1000, el: "arkiv-reth/v0.2.0", cl: "lighthouse/v8.2.1", hw: { cpus: 8, mem_gb: 32 } },
   syncing: false,
 }
 

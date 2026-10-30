@@ -15,9 +15,9 @@ const LB = "0xCA4B166EE155Cb2816Dc25f94Dc1fD102a26c997"
 const SETTLE = "0x411E31d7eBbfd636Af234954db5f598Cd80a878C"
 
 describe("the shipped addresses", () => {
-  it("name the load balancer and the settle key for tiramisu", () => {
-    equal(lbAddress(7738577, SHIPPED, undefined), LB)
-    equal(settleAddress(7738577, SHIPPED, undefined), SETTLE)
+  it("name the load balancer and the settle key for rabdi", () => {
+    equal(lbAddress(7794095, SHIPPED, undefined), LB)
+    equal(settleAddress(7794095, SHIPPED, undefined), SETTLE)
   })
 
   it("refuse a chain nobody ships an address for, naming the override", () => {
@@ -37,8 +37,8 @@ describe("the shipped addresses", () => {
     equal(settleAddress(7, file, undefined), SETTLE)
   })
 
-  it("ship the previous settle addresses, none for tiramisu today", () => {
-    deepEqual(settlePreviousAddresses(7738577, SHIPPED, undefined), [])
+  it("ship the previous settle addresses, none for rabdi today", () => {
+    deepEqual(settlePreviousAddresses(7794095, SHIPPED, undefined), [])
     const dir = mkdtempSync(join(tmpdir(), "addresses-"))
     const file = join(dir, "addresses.json")
     writeFileSync(file, JSON.stringify({ "7": { lb: LB, settle: SETTLE, settle_previous: [LB.toLowerCase()] } }))
@@ -47,7 +47,7 @@ describe("the shipped addresses", () => {
   })
 
   it("take an override before the shipped list, comma-separated", () => {
-    deepEqual(settlePreviousAddresses(7738577, SHIPPED, `${LB.toLowerCase()}, ${SETTLE}`), [LB, SETTLE])
+    deepEqual(settlePreviousAddresses(7794095, SHIPPED, `${LB.toLowerCase()}, ${SETTLE}`), [LB, SETTLE])
     // Compose passes an unset variable as an empty string.
     const dir = mkdtempSync(join(tmpdir(), "addresses-"))
     const file = join(dir, "addresses.json")

@@ -276,6 +276,18 @@ MARKETPLACE_STATUS='{"address":"0x2121","balance_glm":"1","offer_key":"0x0f","ag
 grep -q '^ *Offer: 0x0f, expires in an unknown time' "$tmp/out"
 grep -q 'next: *waiting for the load balancer' "$tmp/out"
 MARKETPLACE_STATUS=${pool//\"offer_expires_in_seconds\":3600/\"offer_expires_in_seconds\":0} status | grep -q '^ *Offer: 0x0f, expires now'
+# A tunnel down because its agreement ended is no fault: the next step is
+# the answer. The same tunnel down for the current agreement is a fault.
+ended='{"address":"0x2121","balance_glm":"1","offer_key":null,"agreement_key":null,"tunnel_state":"ended","tunnel_agreement":"0x9c","tunnel_port":20007,"count":null,"awaiting_records":0,"payouts_receipts":0,"next":"post-offer"}'
+MARKETPLACE_STATUS=$ended PROFILES=tunnel TUNNEL_STATUS_PORT=18603 status > "$tmp/out"
+grep -q 'overall: *NOT SERVING YET' "$tmp/out"
+grep -q 'next: *offer your node' "$tmp/out"
+grep -q 'which has ended: post a new offer' "$tmp/out"
+current='{"address":"0x2121","balance_glm":"1","offer_key":"0x0f","agreement_key":"0x9c","tunnel_state":"current","count":null,"awaiting_records":0,"payouts_receipts":0,"next":null}'
+if MARKETPLACE_STATUS=$current PROFILES=tunnel TUNNEL_STATUS_PORT=18603 status > "$tmp/out"; then
+  echo "a tunnel down for the current agreement passed" >&2; exit 1
+fi
+grep -q 'overall: *NEEDS ATTENTION' "$tmp/out"
 # The records out of reach: the verdict says so instead of guessing, and
 # everything the command printed is under the pool line.
 status > "$tmp/out"

@@ -173,7 +173,7 @@ describe("the load balancer's records", () => {
   })
 
   it("a record without the attribute is an error, not a guess", () => {
-    // A row's fields are the reader's to guarantee (chain.test.ts); the
+    // A row's parts are the reader's to guarantee (chain.test.ts); the
     // attributes a record needs are checked here.
     throws(() => decodeAgreement(entity({ key: LISTING, expiresAt: 1n, attributes: {}, payload: {} })), /provider/)
   })

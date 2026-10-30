@@ -62,17 +62,10 @@ export async function connectReader(rpcUrl: string): Promise<Reader> {
           $attributes: true,
         },
       })
-      return page.entities.map((flat) => ({
-        key: flat.$key,
-        creator: flat.$creator,
-        createdAt: flat.$createdAt,
-        updatedAt: flat.$updatedAt,
-        expiresAt: flat.$expiresAt,
-        attributes: flat.$attributes as Record<string, Attribute>,
-      }))
+      return page.entities.map(fromFlat)
     },
-    // The SDK's getEntityCount at this version takes no query and
-    // counts every entity on the chain; the node's method takes one.
+    // The SDK has no count call that takes a query at this version;
+    // the node's method does.
     count: async (text) => {
       const count = await client.request({
         method: "arkiv_getEntityCount",
@@ -104,6 +97,36 @@ export function explainRefusal(error: unknown): string | undefined {
     }
   }
   return undefined
+}
+
+/** A flat row as the SDK answers one, with every selected part. */
+type Flat = {
+  $key?: Hex | undefined
+  $creator?: Hex | undefined
+  $createdAt?: bigint | undefined
+  $updatedAt?: bigint | undefined
+  $expiresAt?: bigint | undefined
+  $attributes?: Record<string, Attribute> | undefined
+}
+
+/**
+ * The SDK's flat row as the package's own. The types say every part
+ * is there; this says so of the node's answer, naming the part a row
+ * lacks rather than failing later on an undefined block.
+ */
+export function fromFlat(flat: Flat): Row {
+  const present = <T>(value: T | undefined, what: string): T => {
+    if (value === undefined) throw new Error(`record ${flat.$key} came without its ${what}`)
+    return value
+  }
+  return {
+    key: present(flat.$key, "key"),
+    creator: present(flat.$creator, "creator"),
+    createdAt: present(flat.$createdAt, "creation block"),
+    updatedAt: present(flat.$updatedAt, "block of its last write"),
+    expiresAt: present(flat.$expiresAt, "expiry"),
+    attributes: present(flat.$attributes, "attributes"),
+  }
 }
 
 export function connectWriter(rpcUrl: string, chainId: number, privateKey: Hex): Writer {

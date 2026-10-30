@@ -262,7 +262,7 @@ grep -q '^ *Agreement: 0x9c, tunnel port 20007, 0.001 GLM per request, ends in a
 grep -q '^ *Tunnel: configured for this agreement' "$tmp/out"
 grep -q '^ *Counting: 48213 requests as of the last write, about 10 minutes ago (since block 900, record 0xc1)' "$tmp/out"
 grep -q '^ *Awaiting payout: 1 closed record, 100 requests' "$tmp/out"
-grep -q '^ *Payouts: 1 receipt, 0.25 GLM in total; last transfer 0x925d on chain 560048' "$tmp/out"
+grep -q '^ *Payouts: 1 receipt, 0.25 GLM in the last six months; last transfer 0x925d on chain 560048' "$tmp/out"
 MARKETPLACE_STATUS=$pool PROFILES=tunnel TUNNEL_STATUS_PORT=18601 status > "$tmp/out"
 grep -q 'overall: *SERVING' "$tmp/out"
 grep -q '^ *Agreement: 0x9c, .*kept alive by the load balancer while your node serves; ends in about 3 days if that stops' "$tmp/out"

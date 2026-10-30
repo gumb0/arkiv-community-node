@@ -156,7 +156,8 @@ nothing is installed on your machine.
    and free slots, your offer, your agreement with its tunnel port,
    whether your tunnel is set up for that agreement, the requests
    counted for you as last written by the load balancer, the closed
-   counts awaiting payout, and the payouts received. Payouts are made
+   counts awaiting payout, and the payouts received in about the last
+   six months, as long as a receipt stays on the chain. Payouts are made
    in GLM to your provider key, on the payout chain the receipt names.
 
 4. **Connect.** Once `./status.sh` shows an agreement:

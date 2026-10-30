@@ -70,13 +70,17 @@ export async function connectReader(rpcUrl: string): Promise<Reader> {
  * like, so the line names the update.
  */
 export function explainRefusal(error: unknown): string | undefined {
+  const refused = (said: string) =>
+    `your node refused a request from marketplace.sh: ${said}\n` +
+    "  If the node was updated recently, update this checkout too: git pull && ./setup.sh --refresh"
   for (let link: unknown = error; link instanceof Error; link = link.cause) {
-    if (!/Rpc(Request)?Error$/.test(link.name)) continue
-    const details = (link as { details?: string }).details || link.message.split("\n")[0]
-    return (
-      `your node refused a request from marketplace.sh: ${details}\n` +
-      "  If the node was updated recently, update this checkout too: git pull && ./setup.sh --refresh"
-    )
+    // The SDK's own class for a query the node rejected (its cause is
+    // the node's data, not an error): the message repeats the query,
+    // which the operator has not typed and cannot act on.
+    if (link.name === "QueryError") return refused(link.message.replace(/\. Query: [\s\S]*$/, ""))
+    if (/Rpc(Request)?Error$/.test(link.name)) {
+      return refused((link as { details?: string }).details || link.message.split("\n")[0] || link.name)
+    }
   }
   return undefined
 }

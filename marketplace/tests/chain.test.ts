@@ -27,6 +27,22 @@ describe("a refusal from the node", () => {
     match(explainRefusal(wrapped) ?? "", /^your node refused a request from marketplace.sh: method not found/)
   })
 
+  it("is the SDK's query error without the query it repeats", () => {
+    // The SDK wraps a query the node rejected in its own class, whose
+    // cause is the node's data rather than an error.
+    const error = new Error(
+      "Query rejected (parse, -32001): unexpected token at position 3. Query: kind = str('rpc.lb_listing') AND v = i32(1)",
+      { cause: { position: 3 } },
+    )
+    error.name = "QueryError"
+    const line = explainRefusal(error)
+    equal(
+      line?.split("\n")[0],
+      "your node refused a request from marketplace.sh: Query rejected (parse, -32001): unexpected token at position 3",
+    )
+    equal(line?.includes("rpc.lb_listing"), false)
+  })
+
   it("leaves every other failure to its own words", () => {
     const transport = new Error("fetch failed")
     transport.name = "HttpRequestError"

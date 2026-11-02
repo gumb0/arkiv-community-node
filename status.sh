@@ -344,7 +344,7 @@ if [ -n "$pool_json" ]; then
   fi
   n=$(pf payouts_receipts)
   if [ "$n" = 0 ]; then
-    pool_lines+=("Payouts: none yet")
+    pool_lines+=("Payouts: none in the last six months")
   else
     pool_lines+=("Payouts: $n receipt$(plural "$n"), $(pf payouts_total_glm) GLM in the last six months; last transfer $(pf payouts_last_tx) on chain $(pf payouts_last_chain_id)")
   fi

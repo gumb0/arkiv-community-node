@@ -247,7 +247,7 @@ grep -q '^ *Load balancer: no listing' "$tmp/out"
 grep -q '^ *Offer: none' "$tmp/out"
 grep -q '^ *Agreement: none' "$tmp/out"
 grep -q '^ *Counting: no open record' "$tmp/out"
-grep -q '^ *Payouts: none yet' "$tmp/out"
+grep -q '^ *Payouts: none in the last six months' "$tmp/out"
 grep -q 'next: *get test GLM for your provider key 0x2121' "$tmp/out"
 MARKETPLACE_STATUS=$pool status --json | grep -q '"next":"fund"'
 MARKETPLACE_STATUS=${pool//\"next\":\"fund\"/\"next\":\"no-listing\"} status | grep -q 'next: *the load balancer has no listing'

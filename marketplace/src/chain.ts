@@ -64,13 +64,13 @@ export async function connectReader(rpcUrl: string): Promise<Reader> {
       })
       return page.entities.map(fromFlat)
     },
-    // The node's own method, kept from before the SDK's query could count.
+    // The count rides on a query; one row is the least a page may ask for.
     count: async (text) => {
-      const count = await client.request({
-        method: "arkiv_getEntityCount",
-        params: [{ query: text }],
-      } as never)
-      return Number(count)
+      const page = await client.query(text, { limit: 1, select: { $key: true }, count: true })
+      if (page.count === undefined) {
+        throw new Error("the node did not say how many records the query matches")
+      }
+      return Number(page.count)
     },
   }
 }

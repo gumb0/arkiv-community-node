@@ -14,7 +14,11 @@ checks, a status script, and a one-command setup.
   (`docker compose version` must work — see the
   [official install guide](https://docs.docker.com/engine/install/)),
   plus `git`, `openssl`, and `envsubst` (Debian/Ubuntu:
-  `apt install gettext-base`).
+  `apt install gettext-base`). `python3` is recommended: with it the
+  consensus client dials the network's boot nodes directly and keeps
+  them as trusted peers, which keeps it connected when they are slow to
+  answer. Without it the node still runs, and finds the boot nodes
+  through discovery only.
 - An NTP-synced clock (`timedatectl` shows "synchronized: yes" on most
   systems). Consensus is slot-timed; a drifting clock desynchronizes the
   node.

@@ -225,6 +225,20 @@ CL_ENRS=$(p2p_list cl_boot_enrs)
 : "${EL_ENODES:?p2p.yaml carries no el_enodes — try --refresh}"
 : "${CL_ENRS:?p2p.yaml carries no cl_boot_enrs — try --refresh}"
 
+# The consensus boot nodes also as multiaddrs, which the client dials
+# directly, and as trusted peers, which its scoring never drops. Both
+# are derived from the ENRs with python3; without it, or with an ENR
+# the script cannot read, the client gets the ENRs alone.
+CL_BOOT_NODES=$CL_ENRS CL_PEER_IDS=''
+if ! command -v python3 >/dev/null; then
+  note "The boot nodes are passed as ENRs only: python3 is not installed. With it they are also dialled directly and kept as trusted peers."
+elif cl_multiaddrs=$(python3 -I tools/enr-multiaddr.py "$CL_ENRS" 2>&1); then
+  CL_BOOT_NODES="$CL_ENRS,$(printf '%s\n' "$cl_multiaddrs" | paste -sd, -)"
+  CL_PEER_IDS=$(printf '%s\n' "$cl_multiaddrs" | sed 's|.*/p2p/||' | paste -sd, -)
+else
+  note "The boot nodes are passed as ENRs only: $cl_multiaddrs"
+fi
+
 # Both image pins live in the upstream script.
 upstream_script="$NETWORK_DIR/run-node.sh"
 EL_IMAGE=$(grep -m1 '^EL_IMAGE=' "$upstream_script" | cut -d= -f2- || true)
@@ -248,10 +262,12 @@ BASE_DOMAIN=$(meta_value baseDomain)
 
 # Render the override: image pins and command lines, peer endpoints
 # substituted in. Variables are whitelisted, envsubst doesn't modify others.
-export EL_IMAGE CL_IMAGE EL_ENODES CL_ENRS
+# A --trusted-peers left without a value is dropped: Lighthouse refuses
+# an empty one.
+export EL_IMAGE CL_IMAGE EL_ENODES CL_BOOT_NODES CL_PEER_IDS
 # shellcheck disable=SC2016  # Linter's complaint about variables not being expanded in single quotes is irrelevant.
-envsubst '${EL_IMAGE} ${CL_IMAGE} ${EL_ENODES} ${CL_ENRS}' \
-  < templates/compose.override.yaml.tmpl > compose.override.yaml
+envsubst '${EL_IMAGE} ${CL_IMAGE} ${EL_ENODES} ${CL_BOOT_NODES} ${CL_PEER_IDS}' \
+  < templates/compose.override.yaml.tmpl | sed '/^ *- --trusted-peers=$/d' > compose.override.yaml
 note "Rendered compose.override.yaml."
 
 if [ "$tunnel_on" = 1 ]; then

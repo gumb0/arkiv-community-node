@@ -43,7 +43,11 @@ services:
       - --execution-jwt=/secrets/jwtsecret
       - --http
       - --http-address=0.0.0.0
-      - --boot-nodes=${CL_ENRS}
+      # The boot nodes as ENRs, for discovery, and as multiaddrs, dialled
+      # directly; as trusted peers, ping timeouts cannot drop them. The
+      # trusted peers line is left out when setup cannot derive them.
+      - --boot-nodes=${CL_BOOT_NODES}
+      - --trusted-peers=${CL_PEER_IDS}
       - --allow-insecure-genesis-sync
       - --ignore-ws-check
       # With optimistic finalized sync off, the beacon node hands every

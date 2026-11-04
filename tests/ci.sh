@@ -11,6 +11,16 @@ git ls-files '*.sh' | xargs -r shellcheck
 note "marketplace package: typecheck and unit tests"
 (cd marketplace && npm ci --silent && npm run --silent typecheck && npm test)
 
+note "a boot node's multiaddr is derived from its ENR"
+# A real boot node's ENR, and its peer id as a running consensus client
+# reported it, so the expected value does not come from the script.
+enr='enr:-L64QPz8LjP-d3w-dz1m_yKMoYOPg-eZLCvmqGriJyrxk-e2LjkiztycRvZtP84uhZHXvZqyaub1_sNO1mIi5NM4uEiCAm2HYXR0bmV0c4j__________4RldGgykM02tGFgAAAA__________-CaWSCdjSCaXCEOYIPGIlzZWNwMjU2azGhAhPehVDplpMn4IUhQx62wbvis9BMhaC1iKPCQCF_nBIKiHN5bmNuZXRzD4N0Y3CCdViDdWRwgnVY'
+[ "$(python3 -I tools/enr-multiaddr.py "$enr")" = /ip4/57.130.15.24/tcp/30040/p2p/16Uiu2HAkvmEXPX5BewemRts2XS6dBftZ9EXKeL9cgkVqAbxtwD6y ]
+[ "$(python3 -I tools/enr-multiaddr.py "$enr,$enr" | wc -l)" = 2 ]
+# An ENR that cannot be read fails the whole list, and prints nothing.
+if out=$(python3 -I tools/enr-multiaddr.py "$enr,enr:-not-a-record" 2>/dev/null); then echo "an unreadable ENR was accepted" >&2; exit 1; fi
+[ -z "$out" ]
+
 note "preflight reports every check, and names the commands a machine lacks"
 # The verdict depends on the runner (its disk is well below the floor),
 # so the run is judged by its lines, not its exit code; the failing path

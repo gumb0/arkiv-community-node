@@ -5,6 +5,17 @@ same for every release: `git pull` in this clone, then `./setup.sh`.
 An "Upgrade notes" line appears only when a release needs more than
 that.
 
+## Unreleased
+
+- The consensus client keeps its boot nodes: it gets them as
+  multiaddrs beside the ENRs, so it dials them directly instead of
+  waiting for discovery to answer, and as trusted peers, so ping
+  timeouts can no longer score them out. A node whose boot nodes all
+  answered slowly at once dropped them and could stay at 0 peers.
+  `setup.sh` derives both from the ENRs with python3, now recommended;
+  without it the client gets the ENRs only, as before. `./setup.sh`
+  recreates the consensus container with the new flags.
+
 ## v0.4.0
 
 The move to the rabdi testnet and its node line, arkiv-reth v1.0.0.

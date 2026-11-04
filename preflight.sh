@@ -67,6 +67,9 @@ need openssl "Debian/Ubuntu: apt install openssl"
 need envsubst "Debian/Ubuntu: apt install gettext-base"
 need curl "Debian/Ubuntu: apt install curl"
 [ "$missing" = 0 ] && ok "commands:" "docker, git, openssl, envsubst, curl"
+# Recommended, not required: setup works without it, with the consensus
+# boot nodes as ENRs only.
+command -v python3 >/dev/null || warn "command:" "python3 is not installed — recommended: with it the consensus client dials its boot nodes directly and keeps them as trusted peers (Debian/Ubuntu: apt install python3)"
 
 # The daemon: every check below asks it. A user outside the docker group
 # gets a permission error here, which reads the same as a stopped daemon.

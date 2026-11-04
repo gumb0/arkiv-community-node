@@ -146,7 +146,18 @@ note "rendered output carries the fixture values"
 grep -q 'fixture-el:ci' compose.override.yaml
 grep -q 'fixture-cl:ci' compose.override.yaml
 grep -q '192.0.2.10:30000,enode://' compose.override.yaml
-grep -q 'enr:-fixture-aaaa,enr:-fixture-bbbb' compose.override.yaml
+# The boot nodes as ENRs, then as multiaddrs; their peer ids trusted.
+grep -q -- '--boot-nodes=enr:-L64QPz8LjP-d3w-dz1m_yKMoYOPg-eZLCvmqGriJyrxk-e2LjkiztycRvZtP84uhZHXvZqyaub1_sNO1mIi5NM4uEiCAm2HYXR0bmV0c4j__________4RldGgykM02tGFgAAAA__________-CaWSCdjSCaXCEOYIPGIlzZWNwMjU2azGhAhPehVDplpMn4IUhQx62wbvis9BMhaC1iKPCQCF_nBIKiHN5bmNuZXRzD4N0Y3CCdViDdWRwgnVY,enr:-L64QBfaaRBNqvQNdDfdWeLyI91Z-2dReGh31sUSOf6ALS7jJMpS-cUnmlF5VldiA34HfTbr7axQn-z2lnwyIQAmYS6CAm2HYXR0bmV0c4j__________4RldGgykM02tGFgAAAA__________-CaWSCdjSCaXCEOYII_IlzZWNwMjU2azGhAs6uGCrv0gJhwx9nGokQ83d7mEE6yT3NKLutYne5NNCHiHN5bmNuZXRzD4N0Y3CCdViDdWRwgnVY,/ip4/57.130.15.24/tcp/30040/p2p/16Uiu2HAkvmEXPX5BewemRts2XS6dBftZ9EXKeL9cgkVqAbxtwD6y,/ip4/57.130.8.252/tcp/30040/p2p/16Uiu2HAm9LTwDzn5ZfGjHq4R4khNY9yLCiZFPW9sM5E3hZteiNm4$' compose.override.yaml
+grep -q -- '--trusted-peers=16Uiu2HAkvmEXPX5BewemRts2XS6dBftZ9EXKeL9cgkVqAbxtwD6y,16Uiu2HAm9LTwDzn5ZfGjHq4R4khNY9yLCiZFPW9sM5E3hZteiNm4$' compose.override.yaml
+
+note "without python3 the boot nodes go to the client as ENRs only"
+nopython=$(path_without python3 python3.12 python3.13 python3.11)
+out=$(NETWORK_DIR=tests/fixture-network PATH=$nopython ./setup.sh --render-only)
+printf '%s\n' "$out" | grep -q 'boot nodes are passed as ENRs only: python3 is not installed'
+grep -q -- '--boot-nodes=enr:-L64QPz8LjP-d3w-dz1m_yKMoYOPg-eZLCvmqGriJyrxk-e2LjkiztycRvZtP84uhZHXvZqyaub1_sNO1mIi5NM4uEiCAm2HYXR0bmV0c4j__________4RldGgykM02tGFgAAAA__________-CaWSCdjSCaXCEOYIPGIlzZWNwMjU2azGhAhPehVDplpMn4IUhQx62wbvis9BMhaC1iKPCQCF_nBIKiHN5bmNuZXRzD4N0Y3CCdViDdWRwgnVY,enr:-L64QBfaaRBNqvQNdDfdWeLyI91Z-2dReGh31sUSOf6ALS7jJMpS-cUnmlF5VldiA34HfTbr7axQn-z2lnwyIQAmYS6CAm2HYXR0bmV0c4j__________4RldGgykM02tGFgAAAA__________-CaWSCdjSCaXCEOYII_IlzZWNwMjU2azGhAs6uGCrv0gJhwx9nGokQ83d7mEE6yT3NKLutYne5NNCHiHN5bmNuZXRzD4N0Y3CCdViDdWRwgnVY$' compose.override.yaml
+if grep -q -- '--trusted-peers=16Uiu' compose.override.yaml; then echo "trusted peers rendered without python3" >&2; exit 1; fi
+rm -rf "$nopython"
+NETWORK_DIR=tests/fixture-network ./setup.sh --render-only >/dev/null
 
 note "tunnel render carries the agreement values"
 NETWORK_DIR=tests/fixture-network COMPOSE_PROFILES=tunnel \

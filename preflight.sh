@@ -166,7 +166,7 @@ else
       MONITOR_UI_PORT) port=${port:-3001};;
     esac
     if ss -ltnH "sport = :$port" 2>/dev/null | grep -q .; then
-      fail "port:" "$port is in use — set $name in .env to a free port, or stop what listens on it"
+      fail "ports:" "$port is in use — set $name in .env to a free port, or stop what listens on it"
       taken=1
     fi
   done

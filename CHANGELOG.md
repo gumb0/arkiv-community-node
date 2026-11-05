@@ -1,11 +1,41 @@
 # Changelog
 
-Notable changes per release, newest first. The update procedure is the
+Notable changes per release, newest first. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) from 0.4.1
+on, and the version numbers follow [Semantic Versioning](https://semver.org/):
+a release's entries are grouped as Added, Changed, Fixed or Removed,
+a summary and upgrade notes may precede them, and earlier releases
+keep the shape they were written in. The update procedure is the
 same for every release: `git pull` in this clone, then `./setup.sh`.
 An "Upgrade notes" line appears only when a release needs more than
 that.
 
-## v0.4.0
+## [Unreleased]
+
+## [0.4.1] - 2026-11-05
+
+### Changed
+
+- The marketplace commands are on `@arkiv-network/sdk` 1.0.1, which
+  sends every entity write with 25% over the gas estimate. With 1.0.0
+  the bare estimate was the limit, and a write could run out of gas
+  when the endpoint answered the estimate from a node one block
+  behind the one the write landed on.
+- The commands count through the SDK's query, the way the node's API
+  documents counting, instead of calling the node's older count
+  method directly, so a node without that method does not stop
+  `status` and `post-offer`.
+
+### Fixed
+
+- The payout line says "none in the last six months" instead of
+  "none yet" for a provider with no receipts: receipts expire after
+  about six months, so a provider last paid longer ago has none on
+  the chain.
+- `preflight.sh` reports a port in use on its ports line, where it
+  used a label of its own that the test gate did not recognise.
+
+## [0.4.0] - 2026-10-30
 
 The move to the rabdi testnet and its node line, arkiv-reth v1.0.0.
 The marketplace commands of this release work on rabdi and no longer
@@ -33,14 +63,14 @@ step: get test GLM for your provider key if it has none, post a new
 offer, then `./marketplace.sh start-tunnel`. Your provider key stays
 the same.
 
-## v0.3.1
+## [0.3.1] - 2026-10-29
 
 - The marketplace addresses for rabdi (chain 7794095): the same load
   balancer and settle keys as on tiramisu. A node on rabdi joins the
   pool with this update and nothing else; a node on tiramisu is not
   affected.
 
-## v0.3.0
+## [0.3.0] - 2026-10-29
 
 One status command that says whether the node serves the pool and
 what to do next; the network chosen by name from the registry, now
@@ -157,14 +187,14 @@ else changed, so the marketplace commands run the new code. Update
 your machine's own CA bundle too (`apt update && apt upgrade
 ca-certificates` on Debian and Ubuntu).
 
-## v0.2.1
+## [0.2.1] - 2026-10-07
 
 - README: the node images are public, so no registry login is needed
   before `./setup.sh`; and the tunnel token in `.env` and the rendered
   tunnel config admits a tunnel as this node, so those files are as
   private as the key.
 
-## v0.2.0
+## [0.2.0] - 2026-09-24
 
 - `marketplace.sh`: joining the community RPC marketplace, one command
   per step, each run in a container from the stack (the `marketplace`
@@ -195,7 +225,7 @@ longer connects. Join through the marketplace (`create-key`,
 then, remove `tunnel` from `COMPOSE_PROFILES` so `./setup.sh` does not
 stop on the missing settings.
 
-## v0.1.1
+## [0.1.1] - 2026-09-07
 
 - The tunnel proxy name is derived from the assigned remote port. The
   fixed name let only the first connected node register; every later
@@ -213,7 +243,17 @@ Upgrade notes: `./setup.sh` re-renders `frpc.toml` and recreates the
 tunnel container with the new proxy name; if the tunnel is on, run it
 even if nothing else changed.
 
-## v0.1.0
+## [0.1.0] - 2026-08-21
 
 First release: compose stack with checksum-verified setup, status
 script, tunnel and monitor profiles.
+
+[Unreleased]: https://github.com/gumb0/arkiv-community-node/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/gumb0/arkiv-community-node/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/gumb0/arkiv-community-node/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/gumb0/arkiv-community-node/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/gumb0/arkiv-community-node/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/gumb0/arkiv-community-node/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/gumb0/arkiv-community-node/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/gumb0/arkiv-community-node/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/gumb0/arkiv-community-node/releases/tag/v0.1.0

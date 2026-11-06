@@ -43,9 +43,15 @@ services:
       - ./artifacts:/gen:ro
       - ./secrets:/secrets:ro
       - ./healthchecks:/hc:ro
+      - ./tools:/tools:ro
       - cl-data:/data
     ports:
       - "127.0.0.1:${CL_HTTP_PORT:-5052}:5052"
+    # The entrypoint registers the boot nodes as trusted peers at every
+    # start, then runs the command (tools/cl-start.sh); init forwards
+    # the signals and reaps the registration once it is done.
+    init: true
+    entrypoint: ["bash", "/tools/cl-start.sh"]
     restart: unless-stopped
     stop_grace_period: 1m
     logging:

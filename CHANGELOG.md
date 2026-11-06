@@ -12,6 +12,18 @@ that.
 
 ## [Unreleased]
 
+### Changed
+
+- The beacon node holds the network's boot nodes as trusted peers:
+  the consensus container registers them through the beacon API at
+  every start, so the beacon node never drops them for slow answers
+  and re-dials them every few seconds while one is disconnected. A
+  node whose boot nodes all answered slowly at once dropped them and
+  could stay at 0 peers for hours. Discovery is off, as on the
+  execution side: the node peers with the boot nodes alone. The
+  change follows the network operator's own node script. `./setup.sh`
+  recreates the consensus container with it.
+
 ## [0.4.1] - 2026-11-05
 
 ### Changed

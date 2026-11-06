@@ -35,6 +35,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        if self.path == "/lighthouse/add_peer":
+            # The beacon API's trusted-peer registration: any ENR is taken.
+            self.answer({"data": None})
+            return
         method, params = request["method"], request.get("params", [])
         if method == "eth_chainId":
             result = hex(CHAIN_ID)

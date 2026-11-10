@@ -34,6 +34,9 @@ services:
 
   consensus:
     image: ${CL_IMAGE}
+    # The boot nodes, for the entrypoint to register as trusted peers.
+    environment:
+      CL_ENRS: ${CL_ENRS}
     command:
       - lighthouse
       - beacon_node
@@ -44,6 +47,10 @@ services:
       - --http
       - --http-address=0.0.0.0
       - --boot-nodes=${CL_ENRS}
+      # The node peers with the boot nodes alone, dialled at start and
+      # re-dialled as trusted peers; an address discovery would advertise
+      # from behind NAT is one nobody can dial back.
+      - --disable-discovery
       - --allow-insecure-genesis-sync
       - --ignore-ws-check
       # With optimistic finalized sync off, the beacon node hands every

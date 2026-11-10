@@ -106,8 +106,8 @@ note "the upstream drift check tells a changed script from a changed network"
 # one changed line of the body is drift. Over a record of its own, so
 # the real one is neither read nor touched.
 tmp=$(mktemp -d)
-printf '%s\n' '#!/usr/bin/env bash' '# run-node.sh — bring up a node that follows the one chain.' 'NETWORK=one' 'EL_IMAGE=el:1' 'CL_IMAGE=cl:1' 'SNAPSHOTS_URL=https://one' 'docker run el' > "$tmp/one.sh"
-printf '%s\n' '#!/usr/bin/env bash' '# run-node.sh — bring up a node that follows the two chain.' 'NETWORK=two' 'EL_IMAGE=el:2' 'CL_IMAGE=cl:2' 'SNAPSHOTS_URL=https://two' 'docker run el' > "$tmp/two.sh"
+printf '%s\n' '#!/usr/bin/env bash' '# run-node.sh — bring up a node that follows the one chain.' 'NETWORK=one' 'SNAPSHOTS_URL=https://one' 'docker run el' > "$tmp/one.sh"
+printf '%s\n' '#!/usr/bin/env bash' '# run-node.sh — bring up a node that follows the two chain.' 'NETWORK=two' 'SNAPSHOTS_URL=https://two' 'docker run el' > "$tmp/two.sh"
 sed 's/docker run el/docker run el --flag/' "$tmp/one.sh" > "$tmp/changed.sh"
 DRIFT_RECORD=$tmp/record tests/upstream-drift.sh --record "$tmp/one.sh" abc1234 >/dev/null
 DRIFT_RECORD=$tmp/record tests/upstream-drift.sh "$tmp/two.sh" >/dev/null
@@ -137,6 +137,31 @@ grep -q 'fixture-el:ci' compose.override.yaml
 grep -q 'fixture-cl:ci' compose.override.yaml
 grep -q '192.0.2.10:30000,enode://' compose.override.yaml
 grep -q 'enr:-fixture-aaaa,enr:-fixture-bbbb' compose.override.yaml
+grep -q -- '--disable-discovery' compose.override.yaml
+grep -q 'CL_ENRS: enr:-fixture-aaaa,enr:-fixture-bbbb' compose.override.yaml
+
+note "the consensus entrypoint registers the boot nodes, then runs the command"
+# Over a fake beacon API: the registration lands once the API is up,
+# and the command runs meanwhile as the main process. The registration
+# outlives the command when nothing answers, so its output goes to a
+# file rather than a pipe the test would wait on, and the leftover is
+# killed.
+python3 tests/fake-node.py 18603 100 >/dev/null 2>&1 & api=$!
+tmp=$(mktemp -d)
+trap 'kill "$api" 2>/dev/null; pkill -f "tools/cl-start[.]sh" 2>/dev/null; rm -rf "$tmp"' EXIT
+sleep 1
+kill -0 "$api" 2>/dev/null || { echo "the fake beacon API did not start (is port 18603 busy?)" >&2; exit 1; }
+CL_ENRS=enr:-fixture-aaaa,enr:-fixture-bbbb LIGHTHOUSE_API=127.0.0.1:18603 timeout 20 bash tools/cl-start.sh sh -c 'sleep 2; echo command ran' > "$tmp/up" 2>&1
+grep -q 'registered the boot nodes as trusted peers' "$tmp/up"
+grep -q 'command ran' "$tmp/up"
+# With no API answering, the command still runs and the registration keeps trying.
+CL_ENRS=enr:-fixture-aaaa LIGHTHOUSE_API=127.0.0.1:18604 timeout 20 bash tools/cl-start.sh sh -c 'sleep 1; echo command ran' > "$tmp/down" 2>&1
+grep -q 'command ran' "$tmp/down"
+if grep -q registered "$tmp/down"; then echo "registered against no API" >&2; exit 1; fi
+pkill -f "tools/cl-start[.]sh" 2>/dev/null || true
+kill "$api"; wait "$api" 2>/dev/null || true
+rm -rf "$tmp"
+trap - EXIT
 
 note "tunnel render carries the agreement values"
 NETWORK_DIR=tests/fixture-network COMPOSE_PROFILES=tunnel \

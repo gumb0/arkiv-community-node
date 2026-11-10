@@ -225,12 +225,14 @@ CL_ENRS=$(p2p_list cl_boot_enrs)
 : "${EL_ENODES:?p2p.yaml carries no el_enodes — try --refresh}"
 : "${CL_ENRS:?p2p.yaml carries no cl_boot_enrs — try --refresh}"
 
-# Both image pins live in the upstream script.
-upstream_script="$NETWORK_DIR/run-node.sh"
-EL_IMAGE=$(grep -m1 '^EL_IMAGE=' "$upstream_script" | cut -d= -f2- || true)
-: "${EL_IMAGE:?could not extract EL_IMAGE from $upstream_script}"
-CL_IMAGE=$(grep -m1 '^CL_IMAGE=' "$upstream_script" | cut -d= -f2- || true)
-: "${CL_IMAGE:?could not extract CL_IMAGE from $upstream_script}"
+# The image pins are data beside the upstream script, pinned by digest
+# and covered by the checksums above.
+images="$NETWORK_DIR/images.env"
+[ -f "$images" ] || die "the network artifacts have no images.env — try --refresh"
+EL_IMAGE=$(grep -m1 '^EL_IMAGE=' "$images" | cut -d= -f2- || true)
+: "${EL_IMAGE:?no EL_IMAGE in $images}"
+CL_IMAGE=$(grep -m1 '^CL_IMAGE=' "$images" | cut -d= -f2- || true)
+: "${CL_IMAGE:?no CL_IMAGE in $images}"
 
 # Values the status script needs, derived from the network metadata.
 meta_value(){ grep -m1 "^$1:" "$NETWORK_DIR/metadata.yaml" | cut -d: -f2- | tr -d '[:space:]' || true; }

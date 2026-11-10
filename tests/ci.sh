@@ -106,8 +106,8 @@ note "the upstream drift check tells a changed script from a changed network"
 # one changed line of the body is drift. Over a record of its own, so
 # the real one is neither read nor touched.
 tmp=$(mktemp -d)
-printf '%s\n' '#!/usr/bin/env bash' '# run-node.sh — bring up a node that follows the one chain.' 'NETWORK=one' 'EL_IMAGE=el:1' 'CL_IMAGE=cl:1' 'SNAPSHOTS_URL=https://one' 'docker run el' > "$tmp/one.sh"
-printf '%s\n' '#!/usr/bin/env bash' '# run-node.sh — bring up a node that follows the two chain.' 'NETWORK=two' 'EL_IMAGE=el:2' 'CL_IMAGE=cl:2' 'SNAPSHOTS_URL=https://two' 'docker run el' > "$tmp/two.sh"
+printf '%s\n' '#!/usr/bin/env bash' '# run-node.sh — bring up a node that follows the one chain.' 'NETWORK=one' 'SNAPSHOTS_URL=https://one' 'docker run el' > "$tmp/one.sh"
+printf '%s\n' '#!/usr/bin/env bash' '# run-node.sh — bring up a node that follows the two chain.' 'NETWORK=two' 'SNAPSHOTS_URL=https://two' 'docker run el' > "$tmp/two.sh"
 sed 's/docker run el/docker run el --flag/' "$tmp/one.sh" > "$tmp/changed.sh"
 DRIFT_RECORD=$tmp/record tests/upstream-drift.sh --record "$tmp/one.sh" abc1234 >/dev/null
 DRIFT_RECORD=$tmp/record tests/upstream-drift.sh "$tmp/two.sh" >/dev/null

@@ -2,9 +2,9 @@
 # Whether the network operator's run-node.sh is the version this
 # stack's translation (compose.override.yaml.tmpl, snapshot/restore.sh)
 # was reviewed against. The lines that differ per network — the chain's
-# name, its snapshots endpoint, the two image pins — are left out of
-# the hash, so one recorded hash covers every network the operator
-# publishes from the same script.
+# name and its snapshots endpoint — are left out of the hash, so one
+# recorded hash covers every network the operator publishes from the
+# same script.
 #
 #   tests/upstream-drift.sh <run-node.sh>
 #       compares the script with the record: exit code 0 when it is the
@@ -17,7 +17,7 @@ cd "$(dirname "$0")/.."
 record=${DRIFT_RECORD:-tests/upstream-run-node.sha256}
 
 digest(){ # digest <run-node.sh> — the hash with the per-network lines left out
-  sed -E -e '/^NETWORK=/d' -e '/^SNAPSHOTS_URL=/d' -e '/^EL_IMAGE=/d' -e '/^CL_IMAGE=/d' \
+  sed -E -e '/^NETWORK=/d' -e '/^SNAPSHOTS_URL=/d' \
     -e 's/^(# run-node\.sh — bring up a node that follows the ).* chain\./\1chain./' "$1" \
     | sha256sum | cut -d' ' -f1
 }

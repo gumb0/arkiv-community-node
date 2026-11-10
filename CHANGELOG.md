@@ -14,6 +14,10 @@ that.
 
 ### Changed
 
+- The image pins are read from `images.env`, which the network now
+  publishes beside its script, pinned by digest and covered by its
+  checksums, instead of being scraped from the script. A clone of the
+  artifacts from before that file needs `./setup.sh --refresh`.
 - The beacon node holds the network's boot nodes as trusted peers:
   the consensus container registers them through the beacon API at
   every start, so the beacon node never drops them for slow answers

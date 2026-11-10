@@ -11,8 +11,8 @@ work=$(mktemp -d)
 export COMPOSE_PROJECT_NAME=snapshot-test COMPOSE_PROGRESS=quiet
 export ARTIFACTS_DIR=$PWD/tests/fixture-network SETUP_STATE_DIR=$work/state
 export NET_NAME=fixture SNAPSHOTS_URL=http://host.docker.internal:$port
-EL_IMAGE=$(grep -m1 '^EL_IMAGE=' tests/fixture-network/run-node.sh | cut -d= -f2-)
-CL_IMAGE=$(grep -m1 '^CL_IMAGE=' tests/fixture-network/run-node.sh | cut -d= -f2-)
+EL_IMAGE=$(grep -m1 '^EL_IMAGE=' tests/fixture-network/images.env | cut -d= -f2-)
+CL_IMAGE=$(grep -m1 '^CL_IMAGE=' tests/fixture-network/images.env | cut -d= -f2-)
 export EL_IMAGE CL_IMAGE
 mkdir -p "$work/state"
 

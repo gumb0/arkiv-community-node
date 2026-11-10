@@ -262,7 +262,7 @@ the output.
   current head, which can briefly disagree during a fork at the tip.
   Comparing at a finalized (or simply older) height would remove that
   caveat.
-- **Image pins as data**: image pins and the official RPC URL are
-  currently read out of the network operator's script and derived by
-  convention. If the artifacts ever publish them as data, setup should
-  consume that instead.
+- **The official RPC URL as data**: the image pins now come as data
+  (`images.env` beside the operator's script); the official RPC URL is
+  still derived by convention from `metadata.yaml`. If the artifacts
+  publish it too, setup should consume that instead.
